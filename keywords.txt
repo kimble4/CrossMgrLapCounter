@@ -1,0 +1,27 @@
+# Syntax Coloring Map
+# Datatypes (KEYWORD1)
+
+# Methods and Functions (KEYWORD2)
+crossmgrSetup	KEYWORD2
+crossmgrRaceInProgress	KEYWORD2
+crossmgrLaps	KEYWORD2
+crossmgrWantsLapClock	KEYWORD2
+crossmgrLapStart	KEYWORD2
+crossmgrLapElapsed	KEYWORD2
+crossmgrRaceStart	KEYWORD2
+crossmgrRaceElapsed	KEYWORD2
+crossmgrSprintTime	KEYWORD2
+crossmgrSprintSpeed	KEYWORD2
+crossmgrSprintBib	KEYWORD2
+crossmgrSprintAge	KEYWORD2
+crossmgrSetOnWallTime	KEYWORD2
+crossmgrOnWallTime	KEYWORD2
+crossmgrLoop	KEYWORD2
+crossmgrWebSocketEvent	KEYWORD2
+crossmgrParseColour	KEYWORD2
+crossmgrColoursAreDefault	KEYWORD2
+
+# Instances (KEYWORD2)
+
+# Constants (LITERAL1)
+
