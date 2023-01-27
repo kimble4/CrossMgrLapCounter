@@ -9,7 +9,6 @@
 #define MAX_RACE_START_TIME_DELTA 750 //how many milliseconds do we allow the race start time to drift by without resetting
 #define TIMELIB_OFFSET 1970  //time_t stores two-digit year, this is the offset.
 #define NUM_LAPCOUNTERS 6 //how many lap counter fields to parse
-#define ENABLE_SPRINT_EXTENSIONS  //extensions to the protocol used for displaying results from a sprint timer that pretends to be CrossMgr
 							
 #define DEBUG
 //#define DEBUG_JSON
@@ -129,6 +128,14 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	_crossmgr_webSocket.enableHeartbeat(reconnect_interval, 3000, 2);
 }
 
+void crossmgrDisconnect() {
+	_crossmgr_webSocket.disconnect();
+}
+
+void crossmgrConnect(IPAddress ip) {
+	_crossmgr_webSocket.begin(ip, CROSSMGR_PORT, "/");
+}
+
 boolean crossmgrConnected() {
 	return(_crossmgr_wsc_connected);
 }
@@ -141,6 +148,10 @@ int crossmgrLaps(int group) {
 	return(_crossmgr_laps[group]);
 }
 
+boolean crossmgrFlashLaps(int group) {
+	return(_crossmgr_flash_laps[group]);
+}
+
 boolean crossmgrWantsLapClock() {
 	return(_crossmgr_lap_elapsed_clock);
 }
@@ -150,15 +161,31 @@ return(_crossmgr_lap_start_times[group]);
 }
 
 unsigned long crossmgrLapElapsed(int group) {
-return(millis() - _crossmgr_race_start - _crossmgr_lap_start_times[group]);
+	return(millis() - _crossmgr_race_start - _crossmgr_lap_start_times[group]);
 }
 
 unsigned long crossmgrRaceStart() {
-return(_crossmgr_race_start);
+	return(_crossmgr_race_start);
 }
 
 unsigned long crossmgrRaceElapsed() {
-return(millis() - _crossmgr_race_start);
+	return(millis() - _crossmgr_race_start);
+}
+
+CRGB crossmgrGetFGColour(int group) {
+	return(crossmgrGetColour(group, true));
+}
+
+CRGB crossmgrGetBGColour(int group) {
+	return(crossmgrGetColour(group, false));
+}
+
+CRGB crossmgrGetColour(int group, boolean foreground) {
+	if (foreground) {
+		return (_crossmgr_fg_colour[group]);
+	} else {
+		return (_crossmgr_bg_colour[group]);
+	}
 }
 
 #ifdef ENABLE_SPRINT_EXTENSIONS
@@ -177,6 +204,17 @@ int crossmgrSprintBib() {
 unsigned long crossmgrSprintAge() {
 	return(millis() - _crossmgr_last_got_sprint_data);
 }
+
+void (*fpOnGotSprintData)(const unsigned long t);
+void crossmgrSetOnGotSprintData(void (*fp)(const unsigned long t)) {
+	fpOnGotSprintData = fp;
+}
+
+void crossmgrOnGotSprintData(unsigned long t) {  //callback for when sprint data arrives
+	if (0 != fpOnGotSprintData) {
+		(*fpOnGotSprintData)(t);
+	}
+}
 #endif
 
 void (*fpOnWallTime)(const time_t, const int millis);
@@ -193,14 +231,36 @@ void crossmgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
 	}
 }
 
-void (*fpOnNetwork)();
-void crossmgrSetOnNetwork(void (*fp)()) {
+void (*fpOnNetwork)(const boolean connected);
+void crossmgrSetOnNetwork(void (*fp)(const boolean connected)) {
 	fpOnNetwork = fp;
 }
 
 void crossmgrOnNetwork() {
 	if (0 != fpOnNetwork) {
-		(*fpOnNetwork)();
+		(*fpOnNetwork)(_crossmgr_wsc_connected);
+	}
+}
+
+void (*fpOnGotRaceData)(const unsigned long t);
+void crossmgrSetOnGotRaceData(void (*fp)(const unsigned long t)) {
+	fpOnGotRaceData = fp;
+}
+
+void crossmgrOnGotRaceData(unsigned long t) {  //callback for when race data arrives
+	if (0 != fpOnGotRaceData) {
+		(*fpOnGotRaceData)(t);
+	}
+}
+
+void (*fpOnGotColours)(const int group);
+void crossmgrSetOnGotColours(void (*fp)(const int group)) {
+	fpOnGotColours = fp;
+}
+
+void crossmgrOnGotColours(int group) {  //callback for when colour data arrives for a group
+	if (0 != fpOnGotColours) {
+		(*fpOnGotColours)(group);
 	}
 }
 
@@ -221,6 +281,7 @@ switch(type) {
 		DEBUG_PRINT(F("[WSc] Disconnected!\r\n"));
 		#endif
 		_crossmgr_wsc_connected = false;
+		crossmgrOnNetwork();
 		//these are now unknown!
 		for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
 			_crossmgr_laps[i] = 0;
@@ -235,7 +296,7 @@ switch(type) {
 		snprintf_P(connectedstring, sizeof(connectedstring), PSTR("[WSc] Connected to url: %s\r\n"), payload);
 		DEBUG_PRINT(connectedstring);
 		#endif
-		_crossmgr_last_got_race_time = websocket_event_time;
+		_crossmgr_last_updated_race_time = 0;  //clear this so that race time updates immediately on reconnect
 		break;
 	case WStype_TEXT:
 		{
@@ -258,195 +319,201 @@ switch(type) {
 				serializeJsonPretty(doc, DEBUG_SERIAL);
 				DEBUG_PRINT(F("\r\n"));
 				#endif
-			//if we haven't recently, get the wall time and set the clock
-			if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet && !_crossmgr_time_to_set) ) {  
-				const char* tNow = doc["tNow"];
-				if (tNow) {  //if we have time data, parse it and set the clock
-					char Y[5];
-					Y[0] = tNow[0];
-					Y[1] = tNow[1];
-					Y[2] = tNow[2];
-					Y[3] = tNow[3];
-					Y[4] = '\0';
-					char M[3];
-					M[0] = tNow[5];
-					M[1] = tNow[6];
-					M[2] = '\0';
-					char D[3];
-					D[0] = tNow[8];
-					D[1] = tNow[9];
-					D[2] = '\0';
-					char h[3];
-					h[0] = tNow[11];
-					h[1] = tNow[12];
-					h[2] = '\0';
-					char m[3];
-					m[0] = tNow[14];
-					m[1] = tNow[15];
-					m[2] = '\0';
-					char s[3];
-					s[0] = tNow[17];
-					s[1] = tNow[18];
-					s[2] = '\0';
-					char mi[4];
-					mi[0] = tNow[20];
-					mi[1] = tNow[21];
-					mi[2] = tNow[22];
-					mi[3] = '\0';
-					TimeElements tm;
-					tm.Year = atoi(Y) - TIMELIB_OFFSET;
-					tm.Month = atoi(M);
-					tm.Day = atoi(D);
-					tm.Hour = atoi(h);
-					tm.Minute = atoi(m);
-					tm.Second = atoi(s);
-					time_t crossmgr_time = makeTime(tm);
-					unsigned int crossmgr_millis = atoi(mi);
-					crossmgrOnWallTime(crossmgr_time, crossmgr_millis);
-					DEBUG_PRINT(F("[CMr] Received wall time: "));
-					DEBUG_PRINT(tNow);
-					DEBUG_PRINT(F(" ("));
-					DEBUG_PRINT(crossmgr_time);
-					DEBUG_PRINT(F("."));
-					DEBUG_PRINT(crossmgr_millis);
-					DEBUG_PRINT(F(")\r\n"));
-					_crossmgr_last_clock_set = millis();
-				#ifdef ENABLE_SPRINT_EXTENSIONS
-				} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer)
-					StaticJsonDocument<30> timeDoc;
-					timeDoc["time"] = now();
-					char out_string[50];
-					serializeJson(timeDoc, out_string);
-					DEBUG_PRINT(F("[CMr] Sending: "));
-					DEBUG_PRINT(out_string);
-					DEBUG_PRINT(F("\r\n"));
-					_crossmgr_webSocket.sendTXT(out_string);
-				#endif
-				}
-			}
-			//update race in progress and start time
-			double curRaceTime = doc["curRaceTime"];
-			if (curRaceTime) {
-				_crossmgr_last_got_race_time = websocket_event_time;
-				_crossmgr_race_in_progress = true;
-				long new_start = websocket_event_time - (curRaceTime * 1000);
-				long diff = _crossmgr_race_start - new_start;
-				if (abs(diff) > MAX_RACE_START_TIME_DELTA && millis() - _crossmgr_last_updated_race_time > RACE_TIME_UPDATE_INTERVAL) {
-					_crossmgr_last_updated_race_time = millis();
-					_crossmgr_race_start = new_start;
-					DEBUG_PRINT(F("[CMr] Resetting race start, delta is "));
-					DEBUG_PRINT(diff);
-					DEBUG_PRINT(F("\r\n"));
-				}
-			} else {
-				_crossmgr_race_in_progress = false;
-			}
-			//display lap elapsed clock field
-			_crossmgr_lap_elapsed_clock = doc["lapElapsedClock"];
-			//lap counts
-			for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
-				_crossmgr_laps[i] = doc["labels"][i][0];
-				_crossmgr_flash_laps[i] = doc["labels"][i][1];
-				double ltime = doc["labels"][i][2];
-				_crossmgr_lap_start_times[i] = ltime * 1000.0;
-			}
-			//colours
-			if (websocket_event_time - _crossmgr_last_colour_set > COLOUR_SET_INTERVAL || _crossmgr_last_colour_set == 0) {
-				for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
-					const char* foreground_string = doc["foregrounds"][i];
-					const char* background_string = doc["backgrounds"][i];
-					if (foreground_string != nullptr && background_string != nullptr) {
-						CRGB fg_colour = crossmgrParseColour(foreground_string);
-						CRGB bg_colour = crossmgrParseColour(background_string);
-						if (_crossmgr_overrride_default_colours && crossmgrColoursAreDefault(i, fg_colour, bg_colour)) {
-							DEBUG_PRINT(F("[CMr] Ignoring default colours for ["));
-							DEBUG_PRINT(i);
-							DEBUG_PRINT(F("]\r\n"));
-						} else {
-							_crossmgr_fg_colour[i] = fg_colour;
-							_crossmgr_bg_colour[i] = bg_colour;
-							DEBUG_PRINT(F("[CMr] Set colours for ["));
-							DEBUG_PRINT(i);
-							DEBUG_PRINT(F("]: background="));
-							char colourstring[9];
-							snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
-							_crossmgr_bg_colour[i].red, _crossmgr_bg_colour[i].green, _crossmgr_bg_colour[i].blue);
-							DEBUG_PRINT(colourstring);
-							DEBUG_PRINT(F(", foreground="));
-							snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
-							_crossmgr_fg_colour[i].red, _crossmgr_fg_colour[i].green, _crossmgr_fg_colour[i].blue);
-							DEBUG_PRINT(colourstring);
-							DEBUG_PRINT(F("\r\n"));
-						}
+				//if we haven't recently, get the wall time and set the clock
+				if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet && !_crossmgr_time_to_set) ) {  
+					const char* tNow = doc["tNow"];
+					if (tNow) {  //if we have time data, parse it and set the clock
+						char Y[5];
+						Y[0] = tNow[0];
+						Y[1] = tNow[1];
+						Y[2] = tNow[2];
+						Y[3] = tNow[3];
+						Y[4] = '\0';
+						char M[3];
+						M[0] = tNow[5];
+						M[1] = tNow[6];
+						M[2] = '\0';
+						char D[3];
+						D[0] = tNow[8];
+						D[1] = tNow[9];
+						D[2] = '\0';
+						char h[3];
+						h[0] = tNow[11];
+						h[1] = tNow[12];
+						h[2] = '\0';
+						char m[3];
+						m[0] = tNow[14];
+						m[1] = tNow[15];
+						m[2] = '\0';
+						char s[3];
+						s[0] = tNow[17];
+						s[1] = tNow[18];
+						s[2] = '\0';
+						char mi[4];
+						mi[0] = tNow[20];
+						mi[1] = tNow[21];
+						mi[2] = tNow[22];
+						mi[3] = '\0';
+						TimeElements tm;
+						tm.Year = atoi(Y) - TIMELIB_OFFSET;
+						tm.Month = atoi(M);
+						tm.Day = atoi(D);
+						tm.Hour = atoi(h);
+						tm.Minute = atoi(m);
+						tm.Second = atoi(s);
+						time_t crossmgr_time = makeTime(tm);
+						unsigned int crossmgr_millis = atoi(mi);
+						crossmgrOnWallTime(crossmgr_time, crossmgr_millis);
+						DEBUG_PRINT(F("[CMr] Received wall time: "));
+						DEBUG_PRINT(tNow);
+						DEBUG_PRINT(F(" ("));
+						DEBUG_PRINT(crossmgr_time);
+						DEBUG_PRINT(F("."));
+						DEBUG_PRINT(crossmgr_millis);
+						DEBUG_PRINT(F(")\r\n"));
+						_crossmgr_last_clock_set = millis();
+					#ifdef ENABLE_SPRINT_EXTENSIONS
+					} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer)
+						StaticJsonDocument<30> timeDoc;
+						timeDoc["time"] = now();
+						char out_string[50];
+						serializeJson(timeDoc, out_string);
+						DEBUG_PRINT(F("[CMr] Sending: "));
+						DEBUG_PRINT(out_string);
+						DEBUG_PRINT(F("\r\n"));
+						_crossmgr_webSocket.sendTXT(out_string);
+					#endif
 					}
 				}
-				_crossmgr_last_colour_set = websocket_event_time;
-			}
-			#ifdef ENABLE_SPRINT_EXTENSIONS
-			//sprint fields 
-			//(this is an extension to the CrossMgr protocol for displaying results from the BHPC sprint timing system)
-			double sprintTime = doc["sprintTime"];
-			double sprintSpeed = doc["sprintSpeed"];
-			int sprintBib = doc["sprintBib"];
-			boolean new_sprint = false;
-			if (sprintTime > 0) {
-				_crossmgr_last_got_sprint_data = websocket_event_time;
-				if (sprintTime != _crossmgr_sprint_time) {
-					new_sprint = true;
-					_crossmgr_sprint_time = sprintTime;
-					DEBUG_PRINT(F("[CMr] Got sprint time: "));
-					DEBUG_PRINT(_crossmgr_sprint_time, 5);
-					DEBUG_PRINT(F("\r\n"));
+				//update race in progress and start time
+				double curRaceTime = doc["curRaceTime"];
+				if (curRaceTime) {
+					_crossmgr_last_got_race_time = websocket_event_time;
+					_crossmgr_race_in_progress = true;
+					long new_start = websocket_event_time - (curRaceTime * 1000);
+					long diff = _crossmgr_race_start - new_start;
+					if (_crossmgr_last_updated_race_time == 0 || (abs(diff) > MAX_RACE_START_TIME_DELTA && millis() - _crossmgr_last_updated_race_time > RACE_TIME_UPDATE_INTERVAL)) {
+						_crossmgr_last_updated_race_time = millis();
+						_crossmgr_race_start = new_start;
+						DEBUG_PRINT(F("[CMr] Resetting race start, delta is "));
+						DEBUG_PRINT(diff);
+						DEBUG_PRINT(F("\r\n"));
+					}
+				} else {
+					_crossmgr_race_in_progress = false;
 				}
-			} else if (sprintTime < 0 ) {  //negative sprint time: timeout sprint immediately
-				_crossmgr_last_got_sprint_data = websocket_event_time + RACE_TIMEOUT;
-				//clear the data
-				_crossmgr_sprint_time = -1;
-				_crossmgr_sprint_speed = -1;
-				_crossmgr_sprint_bib = -1;
-			}
-			if (sprintSpeed) {
-				_crossmgr_last_got_sprint_data = websocket_event_time;
-				if (sprintSpeed != _crossmgr_sprint_speed) {
-					new_sprint = true;
-					_crossmgr_sprint_speed = sprintSpeed;
-					DEBUG_PRINT(F("[CMr] Got sprint speed: "));
-					DEBUG_PRINT(_crossmgr_sprint_speed, 5);
-					DEBUG_PRINT(F("\r\n"));
+				//display lap elapsed clock field
+				_crossmgr_lap_elapsed_clock = doc["lapElapsedClock"];
+				//lap counts
+				for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
+					_crossmgr_laps[i] = doc["labels"][i][0];
+					_crossmgr_flash_laps[i] = doc["labels"][i][1];
+					double ltime = doc["labels"][i][2];
+					_crossmgr_lap_start_times[i] = ltime * 1000.0;
 				}
-			}
-			if (sprintBib) {
-				_crossmgr_last_got_sprint_data = websocket_event_time;
-				int b = sprintBib;  //temp variable because we test sprintBib again below
-				if (b == -1) {  // '0' is a valid value, because Mike Burrows, transmitted as -1
-					b = 0;
+				//colours
+				if (websocket_event_time - _crossmgr_last_colour_set > COLOUR_SET_INTERVAL || _crossmgr_last_colour_set == 0) {
+					for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
+						const char* foreground_string = doc["foregrounds"][i];
+						const char* background_string = doc["backgrounds"][i];
+						if (foreground_string != nullptr && background_string != nullptr) {
+							CRGB fg_colour = crossmgrParseColour(foreground_string);
+							CRGB bg_colour = crossmgrParseColour(background_string);
+							if (_crossmgr_overrride_default_colours && crossmgrColoursAreDefault(i, fg_colour, bg_colour)) {
+								DEBUG_PRINT(F("[CMr] Ignoring default colours for ["));
+								DEBUG_PRINT(i);
+								DEBUG_PRINT(F("]\r\n"));
+							} else {
+								_crossmgr_fg_colour[i] = fg_colour;
+								_crossmgr_bg_colour[i] = bg_colour;
+								DEBUG_PRINT(F("[CMr] Set colours for ["));
+								DEBUG_PRINT(i);
+								DEBUG_PRINT(F("]: background="));
+								char colourstring[9];
+								snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
+								_crossmgr_bg_colour[i].red, _crossmgr_bg_colour[i].green, _crossmgr_bg_colour[i].blue);
+								DEBUG_PRINT(colourstring);
+								DEBUG_PRINT(F(", foreground="));
+								snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
+								_crossmgr_fg_colour[i].red, _crossmgr_fg_colour[i].green, _crossmgr_fg_colour[i].blue);
+								DEBUG_PRINT(colourstring);
+								DEBUG_PRINT(F("\r\n"));
+								crossmgrOnGotColours(i);
+							}
+						}
+					}
+					_crossmgr_last_colour_set = websocket_event_time;
 				}
-				if (b != _crossmgr_sprint_bib && b >= 0) {  //discard negative numbers
-					new_sprint = true;
-					_crossmgr_sprint_bib = b;
-					DEBUG_PRINT(F("[CMr] Got sprint bib: "));
-					DEBUG_PRINT(_crossmgr_sprint_bib);
-					DEBUG_PRINT(F("\r\n"));
-				}
-			}
-			if (new_sprint) {
-				if (!sprintSpeed) {  //we got new data but no speed
-					DEBUG_PRINT(F("[CMr] Did not get a speed!\r\n"));
-					_crossmgr_sprint_speed = -1;
-				}
-				if (!sprintTime) {  //we got new data but no time
+				#ifdef ENABLE_SPRINT_EXTENSIONS
+				//sprint fields 
+				//(this is an extension to the CrossMgr protocol for displaying results from the BHPC sprint timing system)
+				double sprintTime = doc["sprintTime"];
+				double sprintSpeed = doc["sprintSpeed"];
+				int sprintBib = doc["sprintBib"];
+				boolean new_sprint = false;
+				if (sprintTime > 0) {
+					_crossmgr_last_got_sprint_data = websocket_event_time;
+					if (sprintTime != _crossmgr_sprint_time) {
+						new_sprint = true;
+						_crossmgr_sprint_time = sprintTime;
+						DEBUG_PRINT(F("[CMr] Got sprint time: "));
+						DEBUG_PRINT(_crossmgr_sprint_time, 5);
+						DEBUG_PRINT(F("\r\n"));
+					}
+				} else if (sprintTime < 0 ) {  //negative sprint time: timeout sprint immediately
+					_crossmgr_last_got_sprint_data = websocket_event_time + RACE_TIMEOUT;
+					//clear the data
 					_crossmgr_sprint_time = -1;
-					DEBUG_PRINT(F("[CMr] Did not get a time!\r\n"));
+					_crossmgr_sprint_speed = -1;
+					_crossmgr_sprint_bib = -1;
 				}
-				if (!sprintBib) {  //we got new data but no bib
-					_crossmgr_sprint_bib = -1;  // negative number here denotes absence of data
-					DEBUG_PRINT(F("[CMr] Did not get a bib!\r\n"));
+				if (sprintSpeed) {
+					_crossmgr_last_got_sprint_data = websocket_event_time;
+					if (sprintSpeed != _crossmgr_sprint_speed) {
+						new_sprint = true;
+						_crossmgr_sprint_speed = sprintSpeed;
+						DEBUG_PRINT(F("[CMr] Got sprint speed: "));
+						DEBUG_PRINT(_crossmgr_sprint_speed, 5);
+						DEBUG_PRINT(F("\r\n"));
+					}
 				}
+				if (sprintBib) {
+					_crossmgr_last_got_sprint_data = websocket_event_time;
+					int b = sprintBib;  //temp variable because we test sprintBib again below
+					if (b == -1) {  // '0' is a valid value, because Mike Burrows, transmitted as -1
+						b = 0;
+					}
+					if (b != _crossmgr_sprint_bib && b >= 0) {  //discard negative numbers
+						new_sprint = true;
+						_crossmgr_sprint_bib = b;
+						DEBUG_PRINT(F("[CMr] Got sprint bib: "));
+						DEBUG_PRINT(_crossmgr_sprint_bib);
+						DEBUG_PRINT(F("\r\n"));
+					}
+				}
+				if (new_sprint) {
+					if (!sprintSpeed) {  //we got new data but no speed
+						DEBUG_PRINT(F("[CMr] Did not get a speed!\r\n"));
+						_crossmgr_sprint_speed = -1;
+					}
+					if (!sprintTime) {  //we got new data but no time
+						_crossmgr_sprint_time = -1;
+						DEBUG_PRINT(F("[CMr] Did not get a time!\r\n"));
+					}
+					if (!sprintBib) {  //we got new data but no bib
+						_crossmgr_sprint_bib = -1;  // negative number here denotes absence of data
+						DEBUG_PRINT(F("[CMr] Did not get a bib!\r\n"));
+					}
+					crossmgrOnGotSprintData(websocket_event_time);
+				} else {
+				#endif
+				crossmgrOnGotRaceData(websocket_event_time);
+				#ifdef ENABLE_SPRINT_EXTENSIONS
+				}
+				#endif
 			}
-			#endif
 		}
-	}
-	break;
+		break;
 	case WStype_BIN:
 		_crossmgr_wsc_connected = true;
 		crossmgrOnNetwork();
@@ -472,6 +539,7 @@ switch(type) {
 			_crossmgr_laps[i] = 0;
 			_crossmgr_flash_laps[i] = false;
 			}
+			crossmgrOnGotRaceData(websocket_event_time);  //call this here so application knows we've timed out
 		}
 		break;
 	}
