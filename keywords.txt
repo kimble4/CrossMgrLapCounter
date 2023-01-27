@@ -3,19 +3,34 @@
 
 # Methods and Functions (KEYWORD2)
 crossmgrSetup	KEYWORD2
+crossmgrDisconnect	KEYWORD2
+crossmgrConnect	KEYWORD2
+crossmgrConnected	KEYWORD2
 crossmgrRaceInProgress	KEYWORD2
 crossmgrLaps	KEYWORD2
+crossmgrFlashLaps	KEYWORD2
 crossmgrWantsLapClock	KEYWORD2
 crossmgrLapStart	KEYWORD2
 crossmgrLapElapsed	KEYWORD2
 crossmgrRaceStart	KEYWORD2
 crossmgrRaceElapsed	KEYWORD2
+crossmgrGetFGColour	KEYWORD2
+crossmgrGetBGColour	KEYWORD2
+crossmgrGetColour	KEYWORD2
 crossmgrSprintTime	KEYWORD2
 crossmgrSprintSpeed	KEYWORD2
 crossmgrSprintBib	KEYWORD2
 crossmgrSprintAge	KEYWORD2
+crossmgrSetOnGotSprintData KEYWORD2
+crossmgrOnGotSprintData	KEYWORD2
 crossmgrSetOnWallTime	KEYWORD2
 crossmgrOnWallTime	KEYWORD2
+crossmgrSetOnNetwork	KEYWORD2
+crossmgrOnNetwork	KEYWORD2
+crossmgrSetOnGotRaceData KEYWORD2
+crossmgrOnGotRaceData KEYWORD2
+crossmgrSetOnGotColours KEYWORD2
+crossmgrOnGotColours KEYWORD2
 crossmgrLoop	KEYWORD2
 crossmgrWebSocketEvent	KEYWORD2
 crossmgrParseColour	KEYWORD2
