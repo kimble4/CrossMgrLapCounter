@@ -12,6 +12,8 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB d
 
 void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg);
 
+boolean crossmgrConnected();
+
 boolean crossmgrRaceInProgress();
 
 int crossmgrLaps(int group);
@@ -39,6 +41,10 @@ unsigned long crossmgrSprintAge();
 void crossmgrSetOnWallTime(void (*fp)(const time_t, const int millis));
 
 void crossmgrOnWallTime(const time_t t, const int millis);
+
+void crossmgrSetOnNetwork(void (*fp)());
+
+void crossmgrOnNetwork();
 
 void crossmgrLoop();
 

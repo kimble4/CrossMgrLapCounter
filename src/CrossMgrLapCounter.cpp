@@ -1,16 +1,15 @@
-#define CROSSMGR_LAP_COUNTER_VERSION 20230126.1
+#define CROSSMGR_LAP_COUNTER_VERSION 20230127.1
 #include "CrossMgrLapCounter.h"
 
 #define RACE_TIMEOUT 60000  // milliseconds - how long after CrossMgr stops sending data do we consider the race to be over?
 #define COLOUR_SET_INTERVAL 30000  //how frequently colours from CrossMgr are parsed in milliseconds
 #define CROSSMGR_PORT 8767  //this is the websocket port, not the web interface
-#define CROSSMGR_CLOCK_SYNC_INTERVAL 300000 //milliseconds
-#define RACE_TIME_UPDATE_INTERVAL 30000  //how often to re-sync the local race clock, don't want to do this too often (milliseconds)
+#define CROSSMGR_CLOCK_SYNC_INTERVAL 300000 //how often to sync the walltime (milliseconds)
+#define RACE_TIME_UPDATE_INTERVAL 30000  //how often to re-sync the local race clock, don't want to do this too often as it may cause visible jitter (milliseconds)
 #define MAX_RACE_START_TIME_DELTA 750 //how many milliseconds do we allow the race start time to drift by without resetting
 #define TIMELIB_OFFSET 1970  //time_t stores two-digit year, this is the offset.
-#define NUM_LAPCOUNTERS 6
-#define ENABLE_SPRINT_EXTENSIONS
-//#define OVERRIDE_CROSSMGR_DEFAULT_COLOURS
+#define NUM_LAPCOUNTERS 6 //how many lap counter fields to parse
+#define ENABLE_SPRINT_EXTENSIONS  //extensions to the protocol used for displaying results from a sprint timer that pretends to be CrossMgr
 							
 #define DEBUG
 //#define DEBUG_JSON
@@ -38,6 +37,8 @@ unsigned long _crossmgr_last_got_race_time = -RACE_TIMEOUT;
 unsigned long _crossmgr_last_updated_race_time = -RACE_TIME_UPDATE_INTERVAL;
 unsigned long _crossmgr_last_colour_set = -COLOUR_SET_INTERVAL;
 unsigned long _crossmgr_last_clock_set = -CROSSMGR_CLOCK_SYNC_INTERVAL;
+unsigned long _crossmgr_set_clock_at = 0;  //zero means time should be set on first connect
+time_t _crossmgr_time_to_set = 0;
 #ifdef ENABLE_SPRINT_EXTENSIONS
 unsigned long _crossmgr_last_got_sprint_data = -RACE_TIMEOUT;
 double _crossmgr_sprint_time = -1;
@@ -128,6 +129,9 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	_crossmgr_webSocket.enableHeartbeat(reconnect_interval, 3000, 2);
 }
 
+boolean crossmgrConnected() {
+	return(_crossmgr_wsc_connected);
+}
 
 boolean crossmgrRaceInProgress() {
 	return(_crossmgr_race_in_progress);
@@ -177,19 +181,35 @@ unsigned long crossmgrSprintAge() {
 
 void (*fpOnWallTime)(const time_t, const int millis);
 void crossmgrSetOnWallTime(void (*fp)(const time_t, const int millis)) {
-fpOnWallTime = fp;
+	fpOnWallTime = fp;
 }
-void crossmgrOnWallTime(const time_t t, int m) {
-if( 0 != fpOnWallTime ) {
-	(*fpOnWallTime)(t, m);
-} else {
-	//from TimeLib
-	setTime(t);
+void crossmgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
+	if (0 != fpOnWallTime) {
+		(*fpOnWallTime)(t, m);
+	} else {
+		//set these variables, for higher precision clock will be set on the millisecond in the main loop
+		_crossmgr_set_clock_at = millis() + 1000 - m;
+		_crossmgr_time_to_set = t + 1;
+	}
 }
+
+void (*fpOnNetwork)();
+void crossmgrSetOnNetwork(void (*fp)()) {
+	fpOnNetwork = fp;
+}
+
+void crossmgrOnNetwork() {
+	if (0 != fpOnNetwork) {
+		(*fpOnNetwork)();
+	}
 }
 
 void crossmgrLoop() {
-_crossmgr_webSocket.loop();
+	_crossmgr_webSocket.loop();
+	if (_crossmgr_set_clock_at && millis() >= _crossmgr_set_clock_at) {  //set clock if scheduled
+		setTime(_crossmgr_time_to_set);
+		_crossmgr_set_clock_at = 0;
+	}
 }
 
 void crossmgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
@@ -200,7 +220,6 @@ switch(type) {
 		#if defined (DEBUG) && ! defined (DEBUG_ESP_PORT)  
 		DEBUG_PRINT(F("[WSc] Disconnected!\r\n"));
 		#endif
-	//       digitalWrite(WEBSOCKET_LED_STOP_BUTTON, LOW);
 		_crossmgr_wsc_connected = false;
 		//these are now unknown!
 		for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
@@ -209,24 +228,21 @@ switch(type) {
 		}
 		break;
 	case WStype_CONNECTED:
-//       digitalWrite(WEBSOCKET_LED_STOP_BUTTON, HIGH);
-		_crossmgr_wsc_connected= true;
-//       networkLightOn();
+		_crossmgr_wsc_connected = true;
+		crossmgrOnNetwork();
 		#if defined (DEBUG) && ! defined (DEBUG_ESP_PORT)
 		char connectedstring[50];
 		snprintf_P(connectedstring, sizeof(connectedstring), PSTR("[WSc] Connected to url: %s\r\n"), payload);
 		DEBUG_PRINT(connectedstring);
 		#endif
 		_crossmgr_last_got_race_time = websocket_event_time;
-//       last_clock_set = millis() - CROSSMGR_CLOCK_SYNC_INTERVAL;  //reset this so we immediately set the clock
-//       lcdBacklightOn();
 		break;
 	case WStype_TEXT:
 		{
 			#if defined (DEBUG_JSON) && ! defined (DEBUG_ESP_PORT)
 			DEBUG_PRINT(F("[WSc] Got text...\r\n"));
 			#endif
-	//         networkLightOn();
+			crossmgrOnNetwork();
 			//allocate memory for JSON parsing document
 			StaticJsonDocument<384> doc;
 			//deserialize the JSON document
@@ -242,8 +258,8 @@ switch(type) {
 				serializeJsonPretty(doc, DEBUG_SERIAL);
 				DEBUG_PRINT(F("\r\n"));
 				#endif
-			if (millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet) ) {  //if we haven't recently, set the clock
-				_crossmgr_last_clock_set = millis();
+			//if we haven't recently, get the wall time and set the clock
+			if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet && !_crossmgr_time_to_set) ) {  
 				const char* tNow = doc["tNow"];
 				if (tNow) {  //if we have time data, parse it and set the clock
 					char Y[5];
@@ -251,7 +267,7 @@ switch(type) {
 					Y[1] = tNow[1];
 					Y[2] = tNow[2];
 					Y[3] = tNow[3];
-					Y[5] = '\0';
+					Y[4] = '\0';
 					char M[3];
 					M[0] = tNow[5];
 					M[1] = tNow[6];
@@ -285,12 +301,16 @@ switch(type) {
 					tm.Minute = atoi(m);
 					tm.Second = atoi(s);
 					time_t crossmgr_time = makeTime(tm);
-					//time_t utc = local_timezone.toUTC(crossmgr_time);  //CrossMgr gives local time - this conversion may break during DST transition
 					unsigned int crossmgr_millis = atoi(mi);
+					crossmgrOnWallTime(crossmgr_time, crossmgr_millis);
 					DEBUG_PRINT(F("[CMr] Received wall time: "));
 					DEBUG_PRINT(tNow);
-					DEBUG_PRINT(F("\r\n"));
-					crossmgrOnWallTime(crossmgr_time, crossmgr_millis);
+					DEBUG_PRINT(F(" ("));
+					DEBUG_PRINT(crossmgr_time);
+					DEBUG_PRINT(F("."));
+					DEBUG_PRINT(crossmgr_millis);
+					DEBUG_PRINT(F(")\r\n"));
+					_crossmgr_last_clock_set = millis();
 				#ifdef ENABLE_SPRINT_EXTENSIONS
 				} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer)
 					StaticJsonDocument<30> timeDoc;
@@ -428,31 +448,33 @@ switch(type) {
 	}
 	break;
 	case WStype_BIN:
-//       networkLightOn();
-	DEBUG_PRINT(F("[WSc] Got binary, ignoring.\r\n"));
-	break;
+		_crossmgr_wsc_connected = true;
+		crossmgrOnNetwork();
+		DEBUG_PRINT(F("[WSc] Got binary, ignoring.\r\n"));
+		
+		break;
 	case WStype_PING:
-//       digitalWrite(WEBSOCKET_LED_STOP_BUTTON, HIGH);
-//       networkLightOn();
-	// pong will be sent automatically
-	DEBUG_PRINT(F("[WSc] Got ping.\r\n"));
-	break;
+		_crossmgr_wsc_connected = true;
+		crossmgrOnNetwork();
+		// pong will be sent automatically
+		DEBUG_PRINT(F("[WSc] Got ping.\r\n"));
+		break;
 	case WStype_PONG:
-//       digitalWrite(WEBSOCKET_LED_STOP_BUTTON, HIGH);
-//       networkLightOn();
-	// answer to a ping we send
-	DEBUG_PRINT(F("[WSc] Got pong.\r\n"));
-	//if we're ponging but not getting data, race is unstarted or finished...
-	if (websocket_event_time - _crossmgr_last_got_race_time > RACE_TIMEOUT) {  //time out
-		DEBUG_PRINT(F("[CMr] Connected to websocket but not racing...\r\n"));
-		_crossmgr_race_in_progress = false;
-		for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
-		_crossmgr_laps[i] = 0;
-		_crossmgr_flash_laps[i] = false;
+		_crossmgr_wsc_connected = true;
+		crossmgrOnNetwork();
+		// answer to a ping we send
+		DEBUG_PRINT(F("[WSc] Got pong.\r\n"));
+		//if we're ponging but not getting data, race is unstarted or finished...
+		if (websocket_event_time - _crossmgr_last_got_race_time > RACE_TIMEOUT) {  //time out
+			DEBUG_PRINT(F("[CMr] Connected to websocket but not racing...\r\n"));
+			_crossmgr_race_in_progress = false;
+			for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
+			_crossmgr_laps[i] = 0;
+			_crossmgr_flash_laps[i] = false;
+			}
 		}
+		break;
 	}
-	break;
-}
 }
 
 CRGB crossmgrParseColour(const char* colour_string) {
