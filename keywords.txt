@@ -20,6 +20,8 @@ crossMgrGetColour	KEYWORD2
 crossMgrSprintTime	KEYWORD2
 crossMgrSprintSpeed	KEYWORD2
 crossMgrSprintBib	KEYWORD2
+crossMgrSprintStart	KEYWORD2
+crossMgrSprintUnit	KEYWORD2
 crossMgrSprintAge	KEYWORD2
 crossMgrSetOnGotSprintData KEYWORD2
 crossMgrONGotSprintData	KEYWORD2
