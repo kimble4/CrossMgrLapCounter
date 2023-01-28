@@ -15,6 +15,10 @@ FastLED: http://fastled.io/ (we use the CRGB struct to represent colours for com
 TimeLib: https://github.com/PaulStoffregen/Time
 
 ## Examples:
-Documentation and examples to come.
-This library is derived from mature code we've been using to run an LED elapsed time clock at [BHPC](http://www.bhpc.org.uk/) races for a couple of years.
+[Command reference](https://github.com/kimble4/CrossMgrLapCounter/blob/main/command_reference.md)
 
+The examples show basic use of the library to output data on the serial terminal.  Driving an LED display is left as an exercise for the reader, but I suggest that addressable LED strips, of the type supported by the FastLED library, are an economical way to build a large, bright LED digital display with minimal additional electronics.
+
+Further examples to come?
+
+This library is derived from code we've been using to run an LED elapsed time clock at [BHPC](http://www.bhpc.org.uk/) races for a couple of years.
