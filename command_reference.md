@@ -70,6 +70,12 @@ Colours are stored using [FastLED](https://fastled.io/)'s [CRGB](http://fastled.
 
 Return a [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) for the given group's lap counter foreground and background colour respectively.  If the default colours were overriden in `crossMgrSetup()`, colours from CrossMgr will be ignored unless they are set to something else.
 
+# Time of day
+
+The library obtains time-of-day from CrossMrg on connection and at 5-minute intervals.  By default this is used to set the system time using TimeLib's `setTime()` or the ESP32 core's `settimeofday()`.
+
+You can access the time of day from your program in the usual ways, eg. `now()` (ESP8266) or `time(nullptr)` (ESP32)
+
 # Callbacks
 `void crossMgrSetOnWallTime(void (*fp)(const time_t t, const int millis))`
 
@@ -106,7 +112,7 @@ The last rider's bib number, if available.
 
 `time_t crossMgrSprintStart()`
 
-The wall time that the sprint was recored.
+The wall time that the sprint was recorded.
 
 `const char * crossMgrSprintUnit()`
 
