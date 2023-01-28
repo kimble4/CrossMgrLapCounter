@@ -12,17 +12,6 @@
 							
 #define DEBUG
 //#define DEBUG_JSON
-							
-//select serial device
-#define DEBUG_SERIAL Serial
-//#define DEBUG_SERIAL Serial.1
-
-//debugging mode
-#if defined (DEBUG) || defined (DEBUG_ESP_PORT)
-#define DEBUG_PRINT(...) DEBUG_SERIAL.print( __VA_ARGS__ )
-#else
-#define DEBUG_PRINT(...)
-#endif
 
 boolean _crossmgr_overrride_default_colours = false;
 unsigned long _crossmgr_race_start = 0;
@@ -74,15 +63,15 @@ for:
 */
 StaticJsonDocument<176> filter;
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval) {
-	crossmgrSetup(ip, reconnect_interval, false, CRGB::White, CRGB::White);
+void crossMgrSetup(IPAddress ip, int reconnect_interval) {
+	crossMgrSetup(ip, reconnect_interval, false, CRGB::White, CRGB::White);
 }
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB default_bg) {
-	crossmgrSetup(ip, reconnect_interval, true, default_fg, default_bg);
+void crossMgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB default_bg) {
+	crossMgrSetup(ip, reconnect_interval, true, default_fg, default_bg);
 }
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg) {
+void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg) {
 	_crossmgr_overrride_default_colours = override_colours;
 	//set up JSON filter to only process the fields we need
 	filter["tNow"] = true;             //wall time
@@ -99,9 +88,9 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
  	filter["sprintSpeed"] = true;       //sprint speed (unitless float)
 	#endif
 	#if defined DEBUG_JSON && (defined (DEBUG) || defined (DEBUG_ESP_PORT))
-	DEBUG_PRINT(F("\n[CMr] Using JSON filter:\r\n"));
+	crossMgrDebug(F("\n[CMr] Using JSON filter:\r\n"));
 	serializeJsonPretty(filter, DEBUG_SERIAL);  //debug JSON
-	DEBUG_PRINT(F("\r\n"));
+	crossMgrDebug(F("\r\n"));
 	#endif
 	//init lapcounter data
 	for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
@@ -114,12 +103,14 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	}
 	//set up websocket  
 	//server address, port and URL
-	DEBUG_PRINT(F("\n[WSc] Connecting websocket client to "));
-	DEBUG_PRINT(ip);
-	DEBUG_PRINT(F("...\r\n"));
+	#ifdef DEBUG
+	char buf[100];
+	snprintf_P(buf, sizeof(buf), PSTR("[CMr] Connecting websocket client to %u.%u.%u.%u:%u\r\n"), ip[0], ip[1], ip[2], ip[3], CROSSMGR_PORT);
+	crossMgrDebug(buf);
+	#endif
 	_crossmgr_webSocket.begin(ip, CROSSMGR_PORT, "/");
 	//event handler
-	_crossmgr_webSocket.onEvent(crossmgrWebSocketEvent);
+	_crossmgr_webSocket.onEvent(crossMgrWebSocketEvent);
 	_crossmgr_webSocket.setReconnectInterval(reconnect_interval);
 	// start heartbeat (optional)
 	// ping server every 15000 ms
@@ -128,59 +119,59 @@ void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	_crossmgr_webSocket.enableHeartbeat(reconnect_interval, 3000, 2);
 }
 
-void crossmgrDisconnect() {
+void crossMgrDisconnect() {
 	_crossmgr_webSocket.disconnect();
 }
 
-void crossmgrConnect(IPAddress ip) {
+void crossMgrConnect(IPAddress ip) {
 	_crossmgr_webSocket.begin(ip, CROSSMGR_PORT, "/");
 }
 
-boolean crossmgrConnected() {
+boolean crossMgrConnected() {
 	return(_crossmgr_wsc_connected);
 }
 
-boolean crossmgrRaceInProgress() {
+boolean crossMgrRaceInProgress() {
 	return(_crossmgr_race_in_progress);
 }
 
-int crossmgrLaps(int group) {
+int crossMgrLaps(int group) {
 	return(_crossmgr_laps[group]);
 }
 
-boolean crossmgrFlashLaps(int group) {
+boolean crossMgrFlashLaps(int group) {
 	return(_crossmgr_flash_laps[group]);
 }
 
-boolean crossmgrWantsLapClock() {
+boolean crossMgrWantsLapClock() {
 	return(_crossmgr_lap_elapsed_clock);
 }
 
-unsigned long crossmgrLapStart(int group) {
+unsigned long crossMgrLapStart(int group) {
 return(_crossmgr_lap_start_times[group]);
 }
 
-unsigned long crossmgrLapElapsed(int group) {
+unsigned long crossMgrLapElapsed(int group) {
 	return(millis() - _crossmgr_race_start - _crossmgr_lap_start_times[group]);
 }
 
-unsigned long crossmgrRaceStart() {
+unsigned long crossMgrRaceStart() {
 	return(_crossmgr_race_start);
 }
 
-unsigned long crossmgrRaceElapsed() {
+unsigned long crossMgrRaceElapsed() {
 	return(millis() - _crossmgr_race_start);
 }
 
-CRGB crossmgrGetFGColour(int group) {
-	return(crossmgrGetColour(group, true));
+CRGB crossMgrGetFGColour(int group) {
+	return(crossMgrGetColour(group, true));
 }
 
-CRGB crossmgrGetBGColour(int group) {
-	return(crossmgrGetColour(group, false));
+CRGB crossMgrGetBGColour(int group) {
+	return(crossMgrGetColour(group, false));
 }
 
-CRGB crossmgrGetColour(int group, boolean foreground) {
+CRGB crossMgrGetColour(int group, boolean foreground) {
 	if (foreground) {
 		return (_crossmgr_fg_colour[group]);
 	} else {
@@ -193,24 +184,24 @@ double crossmgrSprintTime() {
 	return(_crossmgr_sprint_time);
 }
 
-double crossmgrSprintSpeed() {
+double crossMgrSprintSpeed() {
 	return(_crossmgr_sprint_speed);
 }
 
-int crossmgrSprintBib() {
+int crossMgrSprintBib() {
 	return(_crossmgr_sprint_bib);
 }
 
-unsigned long crossmgrSprintAge() {
+unsigned long crossMgrSprintAge() {
 	return(millis() - _crossmgr_last_got_sprint_data);
 }
 
 void (*fpOnGotSprintData)(const unsigned long t);
-void crossmgrSetOnGotSprintData(void (*fp)(const unsigned long t)) {
+void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t)) {
 	fpOnGotSprintData = fp;
 }
 
-void crossmgrOnGotSprintData(unsigned long t) {  //callback for when sprint data arrives
+void crossMgrOnGotSprintData(unsigned long t) {  //callback for when sprint data arrives
 	if (0 != fpOnGotSprintData) {
 		(*fpOnGotSprintData)(t);
 	}
@@ -218,10 +209,10 @@ void crossmgrOnGotSprintData(unsigned long t) {  //callback for when sprint data
 #endif
 
 void (*fpOnWallTime)(const time_t, const int millis);
-void crossmgrSetOnWallTime(void (*fp)(const time_t, const int millis)) {
+void crossMgrSetOnWallTime(void (*fp)(const time_t, const int millis)) {
 	fpOnWallTime = fp;
 }
-void crossmgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
+void crossMgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
 	if (0 != fpOnWallTime) {
 		(*fpOnWallTime)(t, m);
 	} else {
@@ -232,39 +223,56 @@ void crossmgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
 }
 
 void (*fpOnNetwork)(const boolean connected);
-void crossmgrSetOnNetwork(void (*fp)(const boolean connected)) {
+void crossMgrSetOnNetwork(void (*fp)(const boolean connected)) {
 	fpOnNetwork = fp;
 }
 
-void crossmgrOnNetwork() {
+void crossMgrOnNetwork() {
 	if (0 != fpOnNetwork) {
 		(*fpOnNetwork)(_crossmgr_wsc_connected);
 	}
 }
 
 void (*fpOnGotRaceData)(const unsigned long t);
-void crossmgrSetOnGotRaceData(void (*fp)(const unsigned long t)) {
+void crossMgrSetOnGotRaceData(void (*fp)(const unsigned long t)) {
 	fpOnGotRaceData = fp;
 }
 
-void crossmgrOnGotRaceData(unsigned long t) {  //callback for when race data arrives
+void crossMgrOnGotRaceData(unsigned long t) {  //callback for when race data arrives
 	if (0 != fpOnGotRaceData) {
 		(*fpOnGotRaceData)(t);
 	}
 }
 
 void (*fpOnGotColours)(const int group);
-void crossmgrSetOnGotColours(void (*fp)(const int group)) {
+void crossMgrSetOnGotColours(void (*fp)(const int group)) {
 	fpOnGotColours = fp;
 }
 
-void crossmgrOnGotColours(int group) {  //callback for when colour data arrives for a group
+void crossMgrOnGotColours(int group) {  //callback for when colour data arrives for a group
 	if (0 != fpOnGotColours) {
 		(*fpOnGotColours)(group);
 	}
 }
 
-void crossmgrLoop() {
+void crossMgrDebug (const __FlashStringHelper * line) {
+	char buf[508] = "";  //maximum safe UDP payload is 508 bytes
+	strcpy_P(buf, (PGM_P)line);
+	crossMgrDebug(buf);
+}
+
+void (*fpOnDebug)(const char * line);
+void crossMgrSetDebug(void (*fp)(const char * line)) {
+	fpOnDebug = fp;
+}
+
+void crossMgrDebug(const char * line) {  //callback for debugging output
+	if (0 != fpOnDebug) {
+		(*fpOnDebug)(line);
+	}
+}
+
+void crossMgrLoop() {
 	_crossmgr_webSocket.loop();
 	if (_crossmgr_set_clock_at && millis() >= _crossmgr_set_clock_at) {  //set clock if scheduled
 		setTime(_crossmgr_time_to_set);
@@ -272,16 +280,16 @@ void crossmgrLoop() {
 	}
 }
 
-void crossmgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+void crossMgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
 long websocket_event_time = millis();
 boolean haveJSON = false;
 switch(type) {
 	case WStype_DISCONNECTED:
-		#if defined (DEBUG) && ! defined (DEBUG_ESP_PORT)  
-		DEBUG_PRINT(F("[WSc] Disconnected!\r\n"));
+		#ifdef DEBUG
+		crossMgrDebug(F("[CMr] WebSocket disconnected!\r\n"));
 		#endif
 		_crossmgr_wsc_connected = false;
-		crossmgrOnNetwork();
+		crossMgrOnNetwork();
 		//these are now unknown!
 		for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
 			_crossmgr_laps[i] = 0;
@@ -290,20 +298,17 @@ switch(type) {
 		break;
 	case WStype_CONNECTED:
 		_crossmgr_wsc_connected = true;
-		crossmgrOnNetwork();
-		#if defined (DEBUG) && ! defined (DEBUG_ESP_PORT)
-		char connectedstring[50];
-		snprintf_P(connectedstring, sizeof(connectedstring), PSTR("[WSc] Connected to url: %s\r\n"), payload);
-		DEBUG_PRINT(connectedstring);
+		crossMgrOnNetwork();
+		#ifdef DEBUG
+		char buf[50];
+		snprintf_P(buf, sizeof(buf), PSTR("[CMr] WebSocket connected to url: %s\r\n"), payload);
+		crossMgrDebug(buf);
 		#endif
 		_crossmgr_last_updated_race_time = 0;  //clear this so that race time updates immediately on reconnect
 		break;
 	case WStype_TEXT:
 		{
-			#if defined (DEBUG_JSON) && ! defined (DEBUG_ESP_PORT)
-			DEBUG_PRINT(F("[WSc] Got text...\r\n"));
-			#endif
-			crossmgrOnNetwork();
+			crossMgrOnNetwork();
 			//allocate memory for JSON parsing document
 			StaticJsonDocument<384> doc;
 			//deserialize the JSON document
@@ -311,13 +316,15 @@ switch(type) {
 			//DeserializationError error = deserializeJson(doc, (char*)payload, length);  //without filter
 			//test if parsing succeeds...
 			if (error) {
-				DEBUG_PRINT("[Err] deserializeJson() failed: ");
-				DEBUG_PRINT(error.c_str());
-				DEBUG_PRINT(F("\r\n"));
+				crossMgrDebug("[Err] deserializeJson() failed: ");
+				crossMgrDebug(error.c_str());
+				crossMgrDebug(F("\r\n"));
 			} else {
 				#ifdef DEBUG_JSON
-				serializeJsonPretty(doc, DEBUG_SERIAL);
-				DEBUG_PRINT(F("\r\n"));
+				char buf[200]
+				serializeJsonPretty(doc, buf);
+				crossMgrDebug(F(buf));
+				crossMgrDebug(F("\r\n"));
 				#endif
 				//if we haven't recently, get the wall time and set the clock
 				if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet && !_crossmgr_time_to_set) ) {  
@@ -363,24 +370,25 @@ switch(type) {
 						tm.Second = atoi(s);
 						time_t crossmgr_time = makeTime(tm);
 						unsigned int crossmgr_millis = atoi(mi);
-						crossmgrOnWallTime(crossmgr_time, crossmgr_millis);
-						DEBUG_PRINT(F("[CMr] Received wall time: "));
-						DEBUG_PRINT(tNow);
-						DEBUG_PRINT(F(" ("));
-						DEBUG_PRINT(crossmgr_time);
-						DEBUG_PRINT(F("."));
-						DEBUG_PRINT(crossmgr_millis);
-						DEBUG_PRINT(F(")\r\n"));
+						crossMgrOnWallTime(crossmgr_time, crossmgr_millis);
+						#ifdef DEBUG
+						//we do this after the time-critical bit
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Received wall time: %s (%u.%i)\r\n"), tNow, crossmgr_time, crossmgr_millis);
+						crossMgrDebug(buf);
+						#endif
 						_crossmgr_last_clock_set = millis();
 					#ifdef ENABLE_SPRINT_EXTENSIONS
-					} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer)
+					} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer, which does not have its own RTC)
 						StaticJsonDocument<30> timeDoc;
 						timeDoc["time"] = now();
 						char out_string[50];
 						serializeJson(timeDoc, out_string);
-						DEBUG_PRINT(F("[CMr] Sending: "));
-						DEBUG_PRINT(out_string);
-						DEBUG_PRINT(F("\r\n"));
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Sending: %s\r\n"), out_string);
+						crossMgrDebug(buf);
+						#endif
 						_crossmgr_webSocket.sendTXT(out_string);
 					#endif
 					}
@@ -395,9 +403,11 @@ switch(type) {
 					if (_crossmgr_last_updated_race_time == 0 || (abs(diff) > MAX_RACE_START_TIME_DELTA && millis() - _crossmgr_last_updated_race_time > RACE_TIME_UPDATE_INTERVAL)) {
 						_crossmgr_last_updated_race_time = millis();
 						_crossmgr_race_start = new_start;
-						DEBUG_PRINT(F("[CMr] Resetting race start, delta is "));
-						DEBUG_PRINT(diff);
-						DEBUG_PRINT(F("\r\n"));
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Resetting race start to %u, delta is %i\r\n"), _crossmgr_race_start, diff);
+						crossMgrDebug(buf);
+						#endif
 					}
 				} else {
 					_crossmgr_race_in_progress = false;
@@ -417,28 +427,25 @@ switch(type) {
 						const char* foreground_string = doc["foregrounds"][i];
 						const char* background_string = doc["backgrounds"][i];
 						if (foreground_string != nullptr && background_string != nullptr) {
-							CRGB fg_colour = crossmgrParseColour(foreground_string);
-							CRGB bg_colour = crossmgrParseColour(background_string);
-							if (_crossmgr_overrride_default_colours && crossmgrColoursAreDefault(i, fg_colour, bg_colour)) {
-								DEBUG_PRINT(F("[CMr] Ignoring default colours for ["));
-								DEBUG_PRINT(i);
-								DEBUG_PRINT(F("]\r\n"));
+							CRGB fg_colour = crossMgrParseColour(foreground_string);
+							CRGB bg_colour = crossMgrParseColour(background_string);
+							if (_crossmgr_overrride_default_colours && crossMgrColoursAreDefault(i, fg_colour, bg_colour)) {
+								#ifdef DEBUG
+								char buf[100];
+								snprintf_P(buf, sizeof(buf), PSTR("[CMr] Ignoring default colours for [%i]\r\n"), i);
+								crossMgrDebug(buf);
+								#endif
 							} else {
 								_crossmgr_fg_colour[i] = fg_colour;
 								_crossmgr_bg_colour[i] = bg_colour;
-								DEBUG_PRINT(F("[CMr] Set colours for ["));
-								DEBUG_PRINT(i);
-								DEBUG_PRINT(F("]: background="));
-								char colourstring[9];
-								snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
-								_crossmgr_bg_colour[i].red, _crossmgr_bg_colour[i].green, _crossmgr_bg_colour[i].blue);
-								DEBUG_PRINT(colourstring);
-								DEBUG_PRINT(F(", foreground="));
-								snprintf_P(colourstring, sizeof(colourstring), PSTR("0x%02X%02X%02X"),
-								_crossmgr_fg_colour[i].red, _crossmgr_fg_colour[i].green, _crossmgr_fg_colour[i].blue);
-								DEBUG_PRINT(colourstring);
-								DEBUG_PRINT(F("\r\n"));
-								crossmgrOnGotColours(i);
+								#ifdef DEBUG
+								char buf[100];
+								snprintf_P(buf, sizeof(buf), PSTR("[CMr] Set colours for [%i]: fg=0x%02X%02X%02X bg=0x%02X%02X%02X\r\n"), i,
+									_crossmgr_fg_colour[i].red, _crossmgr_fg_colour[i].green, _crossmgr_fg_colour[i].blue,
+									_crossmgr_bg_colour[i].red, _crossmgr_bg_colour[i].green, _crossmgr_bg_colour[i].blue);
+								crossMgrDebug(buf);
+								#endif
+								crossMgrOnGotColours(i);
 							}
 						}
 					}
@@ -456,9 +463,11 @@ switch(type) {
 					if (sprintTime != _crossmgr_sprint_time) {
 						new_sprint = true;
 						_crossmgr_sprint_time = sprintTime;
-						DEBUG_PRINT(F("[CMr] Got sprint time: "));
-						DEBUG_PRINT(_crossmgr_sprint_time, 5);
-						DEBUG_PRINT(F("\r\n"));
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got sprint time: %.3f\r\n"), _crossmgr_sprint_time);
+						crossMgrDebug(buf);
+						#endif
 					}
 				} else if (sprintTime < 0 ) {  //negative sprint time: timeout sprint immediately
 					_crossmgr_last_got_sprint_data = websocket_event_time + RACE_TIMEOUT;
@@ -472,9 +481,11 @@ switch(type) {
 					if (sprintSpeed != _crossmgr_sprint_speed) {
 						new_sprint = true;
 						_crossmgr_sprint_speed = sprintSpeed;
-						DEBUG_PRINT(F("[CMr] Got sprint speed: "));
-						DEBUG_PRINT(_crossmgr_sprint_speed, 5);
-						DEBUG_PRINT(F("\r\n"));
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got sprint speed: %.3f\r\n"), _crossmgr_sprint_speed);
+						crossMgrDebug(buf);
+						#endif
 					}
 				}
 				if (sprintBib) {
@@ -486,28 +497,30 @@ switch(type) {
 					if (b != _crossmgr_sprint_bib && b >= 0) {  //discard negative numbers
 						new_sprint = true;
 						_crossmgr_sprint_bib = b;
-						DEBUG_PRINT(F("[CMr] Got sprint bib: "));
-						DEBUG_PRINT(_crossmgr_sprint_bib);
-						DEBUG_PRINT(F("\r\n"));
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got sprint bib: %i\r\n"), _crossmgr_sprint_bib);
+						crossMgrDebug(buf);
+						#endif
 					}
 				}
 				if (new_sprint) {
 					if (!sprintSpeed) {  //we got new data but no speed
-						DEBUG_PRINT(F("[CMr] Did not get a speed!\r\n"));
+						crossMgrDebug(F("[CMr] Did not get a speed!\r\n"));
 						_crossmgr_sprint_speed = -1;
 					}
 					if (!sprintTime) {  //we got new data but no time
 						_crossmgr_sprint_time = -1;
-						DEBUG_PRINT(F("[CMr] Did not get a time!\r\n"));
+						crossMgrDebug(F("[CMr] Did not get a time!\r\n"));
 					}
 					if (!sprintBib) {  //we got new data but no bib
 						_crossmgr_sprint_bib = -1;  // negative number here denotes absence of data
-						DEBUG_PRINT(F("[CMr] Did not get a bib!\r\n"));
+						crossMgrDebug(F("[CMr] Did not get a bib!\r\n"));
 					}
-					crossmgrOnGotSprintData(websocket_event_time);
+					crossMgrOnGotSprintData(websocket_event_time);
 				} else {
 				#endif
-				crossmgrOnGotRaceData(websocket_event_time);
+				crossMgrOnGotRaceData(websocket_event_time);
 				#ifdef ENABLE_SPRINT_EXTENSIONS
 				}
 				#endif
@@ -516,36 +529,36 @@ switch(type) {
 		break;
 	case WStype_BIN:
 		_crossmgr_wsc_connected = true;
-		crossmgrOnNetwork();
-		DEBUG_PRINT(F("[WSc] Got binary, ignoring.\r\n"));
+		crossMgrOnNetwork();
+		crossMgrDebug(F("[CMr] WebSocket got binary, ignoring.\r\n"));
 		
 		break;
 	case WStype_PING:
 		_crossmgr_wsc_connected = true;
-		crossmgrOnNetwork();
+		crossMgrOnNetwork();
 		// pong will be sent automatically
-		DEBUG_PRINT(F("[WSc] Got ping.\r\n"));
+		crossMgrDebug(F("[CMr] WebSocket got ping.\r\n"));
 		break;
 	case WStype_PONG:
 		_crossmgr_wsc_connected = true;
-		crossmgrOnNetwork();
+		crossMgrOnNetwork();
 		// answer to a ping we send
-		DEBUG_PRINT(F("[WSc] Got pong.\r\n"));
+		crossMgrDebug(F("[CMr] WebSocket got pong.\r\n"));
 		//if we're ponging but not getting data, race is unstarted or finished...
 		if (websocket_event_time - _crossmgr_last_got_race_time > RACE_TIMEOUT) {  //time out
-			DEBUG_PRINT(F("[CMr] Connected to websocket but not racing...\r\n"));
+			crossMgrDebug(F("[CMr] Connected to WebSocket but not racing...\r\n"));
 			_crossmgr_race_in_progress = false;
 			for (int i = 0; i < NUM_LAPCOUNTERS; i++) {
 			_crossmgr_laps[i] = 0;
 			_crossmgr_flash_laps[i] = false;
 			}
-			crossmgrOnGotRaceData(websocket_event_time);  //call this here so application knows we've timed out
+			crossMgrOnGotRaceData(websocket_event_time);  //call this here so application knows we've timed out
 		}
 		break;
 	}
 }
 
-CRGB crossmgrParseColour(const char* colour_string) {
+CRGB crossMgrParseColour(const char* colour_string) {
 //parse string of the form "rgb(21, 1, 117)"
 char c[4];
 CRGB output = CRGB::Black;
@@ -553,7 +566,7 @@ int pointer = 0;
 //get the red
 while (!isDigit(colour_string[pointer])) {
 	if (colour_string[pointer] == '\0') {
-	DEBUG_PRINT(F("[Err] parseCrossMgrColour() did not find a digit!\r\n"));
+	crossMgrDebug(F("[CMr] parseColour() did not find a digit!\r\n"));
 	return output;
 	}
 	pointer++;
@@ -570,7 +583,7 @@ output.red = atoi(c);
 //get the green
 while (!isDigit(colour_string[pointer])) {
 	if (colour_string[pointer] == '\0') {
-	DEBUG_PRINT(F("[Err] parseCrossMgrColour() string terminated before green!\r\n"));
+	crossMgrDebug(F("[CMr] parseColour() string terminated before green!\r\n"));
 	return output;
 	}
 	pointer++;
@@ -587,7 +600,7 @@ output.green = atoi(c);
 //get the blue
 while (!isDigit(colour_string[pointer])) {
 	if (colour_string[pointer] == '\0') {
-	DEBUG_PRINT(F("[Err] parseCrossMgrColour() string terminated before blue!\r\n"));
+	crossMgrDebug(F("[Cmr] parseColour() string terminated before blue!\r\n"));
 	return output;
 	}
 	pointer++;
@@ -604,7 +617,7 @@ output.blue = atoi(c);
 return output;
 }
 
-boolean crossmgrColoursAreDefault(int group, CRGB fg_colour, CRGB bg_colour) {
+boolean crossMgrColoursAreDefault(int group, CRGB fg_colour, CRGB bg_colour) {
 	switch(group) {
 		case 0:
 			if (fg_colour == CRGB(255,255,255) && bg_colour == CRGB(16,16,16)) {

@@ -7,76 +7,83 @@
 #include <FastLED.h>            //LED strip http://fastled.io/  (we use the CRGB struct)
 #include <TimeLib.h>            //general clockery https://www.pjrc.com/teensy/td_libs_Time.html
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval);
+void crossMgrSetup(IPAddress ip, int reconnect_interval);
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB default_bg);
+void crossMgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB default_bg);
 
-void crossmgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg);
+void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg);
 
-void crossmgrDisconnect();
+void crossMgrDisconnect();
 
-void crossmgrConnect(IPAddress ip);
+void crossMgrConnect(IPAddress ip);
 
-boolean crossmgrConnected();
+boolean crossMgrConnected();
 
-boolean crossmgrRaceInProgress();
+boolean crossMgrRaceInProgress();
 
-int crossmgrLaps(int group);
+int crossMgrLaps(int group);
 
-boolean crossmgrFlashLaps(int group);
+boolean crossMgrFlashLaps(int group);
 
-boolean crossmgrWantsLapClock();
+boolean crossMgrWantsLapClock();
 
-unsigned long crossmgrLapStart(int group);
+unsigned long crossMgrLapStart(int group);
 
-unsigned long crossmgrLapElapsed(int group);
+unsigned long crossMgrLapElapsed(int group);
 
-unsigned long crossmgrRaceStart();
+unsigned long crossMgrRaceStart();
 
-unsigned long crossmgrRaceElapsed();
+unsigned long crossMgrRaceElapsed();
 
-CRGB crossmgrGetFGColour(int group);
+CRGB crossMgrGetFGColour(int group);
 
-CRGB crossmgrGetBGColour(int group);
+CRGB crossMgrGetBGColour(int group);
 
-CRGB crossmgrGetColour(int group, boolean foreground);
+CRGB crossMgrGetColour(int group, boolean foreground);
 
 #ifdef ENABLE_SPRINT_EXTENSIONS
-double crossmgrSprintTime();
+double crossMgrSprintTime();
 
-double crossmgrSprintSpeed();
+double crossMgrSprintSpeed();
 
-int crossmgrSprintBib();
+int crossMgrSprintBib();
 
-unsigned long crossmgrSprintAge();
+unsigned long crossMgrSprintAge();
 
-void crossmgrSetOnGotSprintData(void (*fp)(const unsigned long t));
+void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t));
 
-void crossmgrOnGotSprintData(unsigned long t);
+void crossMgrOnGotSprintData(unsigned long t);
 #endif
 
-void crossmgrSetOnWallTime(void (*fp)(const time_t, const int millis));
+void crossMgrSetOnWallTime(void (*fp)(const time_t, const int millis));
 
-void crossmgrOnWallTime(const time_t t, const int millis);
+void crossMgrOnWallTime(const time_t t, const int millis);
 
-void crossmgrSetOnNetwork(void (*fp)(boolean connected));
+void crossMgrSetOnNetwork(void (*fp)(boolean connected));
 
-void crossmgrOnNetwork();
+void crossMgrOnNetwork();
 
-void crossmgrSetOnGotRaceData(void (*fp)(const unsigned long t));
+void crossMgrSetOnGotRaceData(void (*fp)(const unsigned long t));
 
-void crossmgrOnGotRaceData(const unsigned long t);
+void crossMgrOnGotRaceData(const unsigned long t);
 
-void crossmgrSetOnGotColours(void (*fp)(const int group));
+void crossMgrSetOnGotColours(void (*fp)(const int group));
 
-void crossmgrOnGotColours(int group);
+void crossMgrOnGotColours(int group);
 
-void crossmgrLoop();
 
-void crossmgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length);
+void crossMgrDebug (const __FlashStringHelper * line);
 
-CRGB crossmgrParseColour(const char* colour_string);
+void crossMgrSetDebug(void (*fp)(const char * line));
 
-boolean crossmgrColoursAreDefault(int group, CRGB fg_colour, CRGB bg_colour);
+void crossMgrDebug(const char * line);
+
+void crossMgrLoop();
+
+void crossMgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length);
+
+CRGB crossMgrParseColour(const char* colour_string);
+
+boolean crossMgrColoursAreDefault(int group, CRGB fg_colour, CRGB bg_colour);
 
 #endif
