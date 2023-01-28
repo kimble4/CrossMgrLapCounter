@@ -5,7 +5,9 @@
 #include <WebSocketsClient.h>   //connecting to CrossMgr https://github.com/Links2004/arduinoWebSockets
 #include <ArduinoJson.h>        //parsing JSON https://arduinojson.org/
 #include <FastLED.h>            //LED strip http://fastled.io/  (we use the CRGB struct)
+#if ! defined (ARDUINO_ARCH_ESP32)
 #include <TimeLib.h>            //general clockery https://www.pjrc.com/teensy/td_libs_Time.html
+#endif
 
 void crossMgrSetup(IPAddress ip, int reconnect_interval);
 

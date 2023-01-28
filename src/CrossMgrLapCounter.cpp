@@ -7,7 +7,6 @@
 #define CROSSMGR_CLOCK_SYNC_INTERVAL 300000 //how often to sync the walltime (milliseconds)
 #define RACE_TIME_UPDATE_INTERVAL 30000  //how often to re-sync the local race clock, don't want to do this too often as it may cause visible jitter (milliseconds)
 #define MAX_RACE_START_TIME_DELTA 750 //how many milliseconds do we allow the race start time to drift by without resetting
-#define TIMELIB_OFFSET 1970  //time_t stores two-digit year, this is the offset.
 #define NUM_LAPCOUNTERS 6 //how many lap counter fields to parse
 							
 #define DEBUG
@@ -24,7 +23,7 @@ boolean _crossmgr_flash_laps[NUM_LAPCOUNTERS];
 unsigned long _crossmgr_last_got_race_time = -RACE_TIMEOUT;
 unsigned long _crossmgr_last_updated_race_time = -RACE_TIME_UPDATE_INTERVAL;
 unsigned long _crossmgr_last_colour_set = -COLOUR_SET_INTERVAL;
-unsigned long _crossmgr_last_clock_set = -CROSSMGR_CLOCK_SYNC_INTERVAL;
+unsigned long _crossmgr_last_clock_set = 0;
 unsigned long _crossmgr_set_clock_at = 0;  //zero means time should be set on first connect
 time_t _crossmgr_time_to_set = 0;
 #ifdef ENABLE_SPRINT_EXTENSIONS
@@ -87,9 +86,12 @@ void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
  	filter["sprintTime"] = true;       //sprint time (float seconds)
  	filter["sprintSpeed"] = true;       //sprint speed (unitless float)
 	#endif
-	#if defined DEBUG_JSON && (defined (DEBUG) || defined (DEBUG_ESP_PORT))
-	crossMgrDebug(F("\n[CMr] Using JSON filter:\r\n"));
-	serializeJsonPretty(filter, DEBUG_SERIAL);  //debug JSON
+	#if defined (DEBUG_JSON) || defined (DEBUG)
+	char buf[200];
+	#endif
+	#if defined DEBUG_JSON
+	serializeJsonPretty(filter, buf);
+	crossMgrDebug(F(buf));
 	crossMgrDebug(F("\r\n"));
 	#endif
 	//init lapcounter data
@@ -104,7 +106,6 @@ void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	//set up websocket  
 	//server address, port and URL
 	#ifdef DEBUG
-	char buf[100];
 	snprintf_P(buf, sizeof(buf), PSTR("[CMr] Connecting websocket client to %u.%u.%u.%u:%u\r\n"), ip[0], ip[1], ip[2], ip[3], CROSSMGR_PORT);
 	crossMgrDebug(buf);
 	#endif
@@ -216,9 +217,17 @@ void crossMgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
 	if (0 != fpOnWallTime) {
 		(*fpOnWallTime)(t, m);
 	} else {
+		#if defined (ARDUINO_ARCH_ESP32)
+		//ESP32 allows us to set the system clock with high precision
+		struct timeval tv;
+		tv.tv_sec = t;
+		tv.tv_usec = m * 1000;
+		settimeofday(&tv, NULL);
+		#else
 		//set these variables, for higher precision clock will be set on the millisecond in the main loop
 		_crossmgr_set_clock_at = millis() + 1000 - m;
 		_crossmgr_time_to_set = t + 1;
+		#endif
 	}
 }
 
@@ -274,10 +283,12 @@ void crossMgrDebug(const char * line) {  //callback for debugging output
 
 void crossMgrLoop() {
 	_crossmgr_webSocket.loop();
+	#if ! defined (ARDUINO_ARCH_ESP32)
 	if (_crossmgr_set_clock_at && millis() >= _crossmgr_set_clock_at) {  //set clock if scheduled
 		setTime(_crossmgr_time_to_set);
 		_crossmgr_set_clock_at = 0;
 	}
+	#endif
 }
 
 void crossMgrWebSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
@@ -310,7 +321,11 @@ switch(type) {
 		{
 			crossMgrOnNetwork();
 			//allocate memory for JSON parsing document
+			#if defined (ARDUINO_ARCH_ESP32)
+			StaticJsonDocument<768> doc;
+			#else
 			StaticJsonDocument<384> doc;
+			#endif
 			//deserialize the JSON document
 			DeserializationError error = deserializeJson(doc, (char*)payload, length, DeserializationOption::Filter(filter));  //using filter
 			//DeserializationError error = deserializeJson(doc, (char*)payload, length);  //without filter
@@ -321,13 +336,13 @@ switch(type) {
 				crossMgrDebug(F("\r\n"));
 			} else {
 				#ifdef DEBUG_JSON
-				char buf[200]
+				char buf[400];
 				serializeJsonPretty(doc, buf);
 				crossMgrDebug(F(buf));
 				crossMgrDebug(F("\r\n"));
 				#endif
 				//if we haven't recently, get the wall time and set the clock
-				if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL || (0 == fpOnWallTime && timeStatus() == timeNotSet && !_crossmgr_time_to_set) ) {  
+				if (_crossmgr_last_clock_set == 0 || millis() - _crossmgr_last_clock_set >= CROSSMGR_CLOCK_SYNC_INTERVAL) {  
 					const char* tNow = doc["tNow"];
 					if (tNow) {  //if we have time data, parse it and set the clock
 						char Y[5];
@@ -361,14 +376,27 @@ switch(type) {
 						mi[1] = tNow[21];
 						mi[2] = tNow[22];
 						mi[3] = '\0';
+						time_t crossmgr_time = 0;
+						#if defined (ARDUINO_ARCH_ESP32)
+ 						struct tm * timeinfo;
+						timeinfo = localtime(&crossmgr_time);
+						timeinfo->tm_year = atoi(Y) - 1900;
+						timeinfo->tm_mon = atoi(M) - 1;
+						timeinfo->tm_mday = atoi(D);
+						timeinfo->tm_hour = atoi(h);
+						timeinfo->tm_min = atoi(m);
+						timeinfo->tm_sec = atoi(s);
+						crossmgr_time = mktime(timeinfo);
+						#else
 						TimeElements tm;
-						tm.Year = atoi(Y) - TIMELIB_OFFSET;
+						tm.Year = atoi(Y) - 1970;
 						tm.Month = atoi(M);
 						tm.Day = atoi(D);
 						tm.Hour = atoi(h);
 						tm.Minute = atoi(m);
 						tm.Second = atoi(s);
-						time_t crossmgr_time = makeTime(tm);
+						crossmgr_time = makeTime(tm);
+						#endif
 						unsigned int crossmgr_millis = atoi(mi);
 						crossMgrOnWallTime(crossmgr_time, crossmgr_millis);
 						#ifdef DEBUG
@@ -379,9 +407,13 @@ switch(type) {
 						#endif
 						_crossmgr_last_clock_set = millis();
 					#ifdef ENABLE_SPRINT_EXTENSIONS
-					} else if (timeStatus() != timeNotSet) {  //send local time to server (for sprint timer, which does not have its own RTC)
+					} else if (_crossmgr_last_clock_set != 0) {  //send local time to server (for sprint timer, which does not have its own RTC)
 						StaticJsonDocument<30> timeDoc;
+						#if defined (ARDUINO_ARCH_ESP32)
+						timeDoc["time"] = time(nullptr);
+						#else
 						timeDoc["time"] = now();
+						#endif
 						char out_string[50];
 						serializeJson(timeDoc, out_string);
 						#ifdef DEBUG
