@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>   //wireless networking
 #include <CrossMgrLapCounter.h>
 
-#define CROSSMGR_IP 81,187,184,197  //for websocket to connect to (note commas!)
+#define CROSSMGR_IP 192,168,1,15  //for websocket to connect to (note commas!)
 #define WEBSOCKET_RECONNECT_INTERVAL 15000 //milliseconds
 
 const char * _wifi_ssid = "ssid"; // your network SSID (name)
