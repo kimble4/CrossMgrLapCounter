@@ -1,4 +1,4 @@
-#define CROSSMGR_LAP_COUNTER_VERSION 20230127.1
+#define CROSSMGR_LAP_COUNTER_VERSION 20230128.2
 #include "CrossMgrLapCounter.h"
 
 #define RACE_TIMEOUT 60000  // milliseconds - how long after CrossMgr stops sending data do we consider the race to be over?
@@ -31,6 +31,8 @@ unsigned long _crossmgr_last_got_sprint_data = -RACE_TIMEOUT;
 double _crossmgr_sprint_time = -1;
 double _crossmgr_sprint_speed = -1;
 int _crossmgr_sprint_bib = -1;
+time_t _crossmgr_sprint_start_time = 0;
+char _crossmgr_sprint_unit[10] = "";
 #endif
 
 CRGB _crossmgr_fg_colour[NUM_LAPCOUNTERS];
@@ -43,7 +45,7 @@ CRGB _crossmgr_bg_colour[NUM_LAPCOUNTERS];
 WebSocketsClient _crossmgr_webSocket;
 
 // The filter: it contains "true" for each value we want to keep
-/* size 176 calculated using https://arduinojson.org/v6/assistant/
+/* size 208 calculated using https://arduinojson.org/v6/assistant/
 for:
 {
   "tNow": true,
@@ -55,12 +57,28 @@ for:
   "lapElapsedClock": true,
   "sprintBib": true,
   "sprintDistance": true,
+  "speedUnit": true,
+  "sprintStart": true,
   "sprintTime": true,
   "sprintSpeed": true
 }
-
+size 112 calculated using https://arduinojson.org/v6/assistant/
+for:
+{
+  "tNow": true,
+  "curRaceTime": true,
+  "raceStartTime": true,
+  "labels": true,
+  "foregrounds": true,
+  "backgrounds": true,
+  "lapElapsedClock": true
+}
 */
-StaticJsonDocument<176> filter;
+#ifdef ENABLE_SPRINT_EXTENSIONS
+StaticJsonDocument<208> filter;
+#else
+StaticJsonDocument<112> filter;
+#endif
 
 void crossMgrSetup(IPAddress ip, int reconnect_interval) {
 	crossMgrSetup(ip, reconnect_interval, false, CRGB::White, CRGB::White);
@@ -193,6 +211,14 @@ int crossMgrSprintBib() {
 	return(_crossmgr_sprint_bib);
 }
 
+time_t crossMgrSprintStart() {
+	return(_crossmgr_sprint_start_time);
+}
+
+const char * crossMgrSprintUnit() {
+	return(_crossmgr_sprint_unit);
+}
+
 unsigned long crossMgrSprintAge() {
 	return(millis() - _crossmgr_last_got_sprint_data);
 }
@@ -209,11 +235,11 @@ void crossMgrOnGotSprintData(unsigned long t) {  //callback for when sprint data
 }
 #endif
 
-void (*fpOnWallTime)(const time_t, const int millis);
-void crossMgrSetOnWallTime(void (*fp)(const time_t, const int millis)) {
+void (*fpOnWallTime)(const time_t t, const int millis);
+void crossMgrSetOnWallTime(void (*fp)(const time_t t, const int millis)) {
 	fpOnWallTime = fp;
 }
-void crossMgrOnWallTime(const time_t t, int m) {  //CrossMgr sends local time
+void crossMgrOnWallTime(const time_t t, const int m) {  //CrossMgr sends local time
 	if (0 != fpOnWallTime) {
 		(*fpOnWallTime)(t, m);
 	} else {
@@ -489,6 +515,8 @@ switch(type) {
 				double sprintTime = doc["sprintTime"];
 				double sprintSpeed = doc["sprintSpeed"];
 				int sprintBib = doc["sprintBib"];
+				time_t sprintStart = doc["sprintStart"];
+				const char* speedUnit = doc["speedUnit"];
 				boolean new_sprint = false;
 				if (sprintTime > 0) {
 					_crossmgr_last_got_sprint_data = websocket_event_time;
@@ -536,6 +564,26 @@ switch(type) {
 						#endif
 					}
 				}
+				if (sprintStart) {
+					_crossmgr_last_got_sprint_data = websocket_event_time;
+					if (sprintStart != _crossmgr_sprint_start_time) {
+						new_sprint = true;
+						_crossmgr_sprint_start_time = sprintStart;
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got sprint start time: %u\r\n"), _crossmgr_sprint_start_time);
+						crossMgrDebug(buf);
+						#endif
+					}
+				}
+				if (speedUnit) {
+					snprintf_P(_crossmgr_sprint_unit, sizeof(_crossmgr_sprint_unit), PSTR("%s"), speedUnit);
+					#ifdef DEBUG
+					char buf[100];
+					snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got speed unit: %s\r\n"), _crossmgr_sprint_unit);
+					crossMgrDebug(buf);
+					#endif
+				}
 				if (new_sprint) {
 					if (!sprintSpeed) {  //we got new data but no speed
 						crossMgrDebug(F("[CMr] Did not get a speed!\r\n"));
@@ -548,6 +596,10 @@ switch(type) {
 					if (!sprintBib) {  //we got new data but no bib
 						_crossmgr_sprint_bib = -1;  // negative number here denotes absence of data
 						crossMgrDebug(F("[CMr] Did not get a bib!\r\n"));
+					}
+					if (!sprintStart) {  //we got new data but no start time
+						_crossmgr_sprint_start_time = 0;
+						crossMgrDebug(F("[CMr] Did not get a start time!\r\n"));
 					}
 					crossMgrOnGotSprintData(websocket_event_time);
 				} else {

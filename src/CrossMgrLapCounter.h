@@ -50,6 +50,10 @@ double crossMgrSprintSpeed();
 
 int crossMgrSprintBib();
 
+time_t crossMgrSprintStart();
+
+const char * crossMgrSprintUnit();
+
 unsigned long crossMgrSprintAge();
 
 void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t));
@@ -72,7 +76,6 @@ void crossMgrOnGotRaceData(const unsigned long t);
 void crossMgrSetOnGotColours(void (*fp)(const int group));
 
 void crossMgrOnGotColours(int group);
-
 
 void crossMgrDebug (const __FlashStringHelper * line);
 
