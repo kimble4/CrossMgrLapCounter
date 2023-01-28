@@ -87,7 +87,7 @@ Sets a callback for when colour data is parsed for a given group.
 
 `void crossMgrSetDebug(void (*fp)(const char * line))`
 
-Sets a callback for the library's debugging output.  The c-string `line` may be `Serial.print()`ed, sent over the network, or whatever.
+Sets a callback for the library's debugging output.  The C-string `line` may be `Serial.print()`ed, sent over the network, or whatever.
 
 # Sprint Timer
 If `ENABLE_SPRINT_EXTENSIONS` is `#define`ed in CrossMgrLapCounter.h, these additional functions are supported when connected to a sprint timer:
@@ -103,6 +103,14 @@ The last rider's speed, as a unitless floating point number, if available.  The 
 `int crossMgrSprintBib()`
 
 The last rider's bib number, if available.
+
+`time_t crossMgrSprintStart()`
+
+The wall time that the sprint was recored.
+
+`const char * crossMgrSprintUnit()`
+
+Human-readable speed unit.
 
 `unsigned long crossMgrSprintAge()`
 
