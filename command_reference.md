@@ -73,7 +73,7 @@ Return a [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) for the given gr
 # Callbacks
 `void crossMgrSetOnWallTime(void (*fp)(const time_t t, const int millis))`
 
-Sets a callback to override what happens when the library parses the time-of-day from CrossMgr (which normally happens on initial connection, and subsequently at 5 minute intervals).  If this is unset, the library will call TimeLib's `setTime()` or the ESP32 core's `settimeofday()` accordingly.  You can then use TimeLib (on ESP8266) or POSIX (on ESP32) functions to retrieve and manipulate the current time.
+Sets a callback to override what happens when the library parses the time-of-day from CrossMgr (which normally happens on initial connection, and subsequently at 5 minute intervals).  If this is unset, the library will call TimeLib's `setTime()` or the ESP32 core's `settimeofday()` accordingly.  You can then use TimeLib (on ESP8266) or POSIX (on ESP32) time functions to retrieve and manipulate the current time.
 
 `t` is a time_t type, as defined by TimeLib or the ESP32 core respectively, which represents the unix epoch time in seconds since 1970-01-01-00:00UTC.  `millis` is an additional number of milliseconds after that time, for increased precision.
 
@@ -98,7 +98,7 @@ The last rider's time, as a floating-point number of seconds, if available.
 
 `double crossMgrSprintSpeed()`
 
-The last rider's speed, as a unitless floating point number, if available.
+The last rider's speed, as a unitless floating point number, if available.  The distance/time calculation is performed by the sprint timer itself.
 
 `int crossMgrSprintBib()`
 
