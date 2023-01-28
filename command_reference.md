@@ -1,4 +1,8 @@
-# Network connection
+# Setup and Network connection
+
+`void crossMgrLoop()`
+
+This must be called frequently from within the main `loop()` in order for the library to process incoming data.
 
 `void crossMgrSetup(IPAddress ip, int reconnect_interval)`
 
@@ -56,3 +60,54 @@ Returns the time in milliseconds, relative to the `millis()` system clock, that 
 `unsigned long crossMgrRaceElapsed()`
 
 Returns the elapsed race time in milliseconds.
+
+# Colours
+Colours are stored using [FastLED](https://fastled.io/)'s [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) struct.  This provides convenient ways to define and manpulate colours, which are particularly useful with RGB-capable LED displays.  In the interests of efficiency, colours from CrossMgr are only updated every 30 seconds.
+
+`CRGB crossMgrGetFGColour(int group)`
+`CRGB crossMgrGetBGColour(int group)`
+`CRGB crossMgrGetColour(int group, boolean foreground)`
+
+Return a [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) for the given group's lap counter foreground and background colour respectively.  If the default colours were overriden in `crossMgrSetup()`, colours from CrossMgr will be ignored unless they are set to something else.
+
+# Callbacks
+`void crossMgrSetOnWallTime(void (*fp)(const time_t t, const int millis))`
+
+Sets a callback to override what happens when the library parses the time-of-day from CrossMgr (which normally happens on initial connection, and subsequently at 5 minute intervals).  If this is unset, the library will call TimeLib's `setTime()` or the ESP32 core's `settimeofday()` accordingly.  You can then use TimeLib (on ESP8266) or POSIX (on ESP32) functions to retrieve and manipulate the current time.
+
+`t` is a time_t type, as defined by TimeLib or the ESP32 core respectively, which represents the unix epoch time in seconds since 1970-01-01-00:00UTC.  `millis` is an additional number of milliseconds after that time, for increased precision.
+
+`void crossMgrSetOnGotRaceData(void (*fp)(const unsigned long t))`
+
+Sets a callback for whenever race data arrives from CrossMgr.  Typically this happens once per second, but can occur more frequently.  `t` contains the time, relative to `millis()` that the data arrived.
+
+`void crossMgrSetOnGotColours(void (*fp)(const int group))`
+
+Sets a callback for when colour data is parsed for a given group.
+
+`void crossMgrSetDebug(void (*fp)(const char * line))`
+
+Sets a callback for the library's debugging output.  The c-string `line` may be `Serial.print()`ed, sent over the network, or whatever.
+
+# Sprint Timer
+If `ENABLE_SPRINT_EXTENSIONS` is `#define`ed in CrossMgrLapCounter.h, these additional functions are supported when connected to a sprint timer:
+
+`double crossMgrSprintTime()`
+
+The last rider's time, as a floating-point number of seconds, if available.
+
+`double crossMgrSprintSpeed()`
+
+The last rider's speed, as a unitless floating point number, if available.
+
+`int crossMgrSprintBib()`
+
+The last rider's bib number, if available.
+
+`unsigned long crossMgrSprintAge()`
+
+The time, in milliseconds, since the current sprint data first arrived.
+
+`void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t))`
+
+Sets a callback for whenever sprint data arrives from the sprint timer.
