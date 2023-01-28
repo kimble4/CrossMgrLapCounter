@@ -1,13 +1,14 @@
-#include <ESP8266WiFi.h>   //wireless networking
+#include <WiFi.h>   //wireless networking
 #include <CrossMgrLapCounter.h>
 
 #define CROSSMGR_IP 81,187,184,197  //for websocket to connect to (note commas!)
 #define WEBSOCKET_RECONNECT_INTERVAL 15000 //milliseconds
+#define LED_BUILTIN 2  //for Wemos D1 R32
 
 const char * _wifi_ssid = "ssid"; // your network SSID (name)
 const char * _wifi_pass = "password";  // your network password
 IPAddress _crossmgr_ip;
-unsigned long _last_sec = 0;
+time_t _last_sec = 0;
 unsigned long _network_light_time = 0;
 
 void setup() {
@@ -18,12 +19,12 @@ void setup() {
   Serial.flush();
   delay(100);
   Serial.print(F("\r\n\r\nCrossMgrLapCounterTest "));
-  Serial.print(F("\r\n[Sys] ESP CPU frequency: "));
-  Serial.print(ESP.getCpuFreqMHz());
-  Serial.print(F("MHz\r\n[Sys] Last reset due to: "));
-  Serial.print(ESP.getResetReason());
-  Serial.print(F("\r\n[Sys] Free sketch space: "));
-  Serial.print(ESP.getFreeSketchSpace());
+//  Serial.print(F("\r\n[Sys] ESP CPU frequency: "));
+//  Serial.print(ESP.getCpuFreqMHz());
+//  Serial.print(F("MHz\r\n[Sys] Last reset due to: "));
+//  Serial.print(ESP.getResetReason());
+//  Serial.print(F("\r\n[Sys] Free sketch space: "));
+//  Serial.print(ESP.getFreeSketchSpace());
   Serial.print(F("\r\n"));
 
   Serial.print("Connecting to ");
@@ -68,14 +69,15 @@ void loop() {
       //This is useful if you want to build a clock that diplays race time
       _last_sec = crossMgrRaceElapsed() - crossMgrRaceElapsed()%1000;
       
-      //The CrossMgrLapCounter library obtains the time of day from CrossMgr and uses it to call TimeLib's setTime() function in the background
-      //see https://github.com/PaulStoffregen/Time for documentation
-      time_t wall_time = now();  //gets the current time as a time_t (number of seconds since 1970-01-01-00:00:00 UTC)
-      
-      //TimeLib provides these functions for dealing with time_t variables, very useful for clock displays
-      int h = hour(wall_time);
-      int m = minute(wall_time);
-      int s = second(wall_time);
+      //The CrossMgrLapCounter library obtains the time of day from CrossMgr and uses it to set the ESP32's clock
+      //We can use the stanard POSIX time functions to access it:
+      time_t epoch_time = time(nullptr);  //gets the current time as a time_t (number of seconds since 1970-01-01-00:00:00 UTC)
+
+      struct tm * timeinfo;
+      timeinfo = localtime(&epoch_time);
+      int h = timeinfo->tm_hour;
+      int m = timeinfo->tm_min;
+      int s = timeinfo->tm_sec;
 
       //This is an easy way to format time fields as text in arduino.  See https://en.wikipedia.org/wiki/Printf_format_string for details
       char buf[100];  //first, define a c-string buffer to store the output
@@ -108,21 +110,18 @@ void loop() {
       Serial.print(F("\r\n"));
     }
   } else {  //race is not in progress, display a simple wall clock
-    if (now() != _last_sec) {
+    if (time(nullptr) != _last_sec) {
       //As CrossMgr only sends the time of day during a race, this will start counting from 1970 on bootup
       //If this is important consider other time sources, such as NTP from the host computer
-      _last_sec = now();
-      if (timeStatus() == timeSet) {  //can check if the time is synced like this
-        //more TimeLib functions
-        TimeElements tm;
-        breakTime(_last_sec, tm);
-        int y = tm.Year + 1970;  //TimeElements stores two-digit year counting from 1970, so we have to apply a fudge factor
-        char buf[100];
-        snprintf_P(buf, sizeof(buf), PSTR("%04u-%02u-%02u %02u:%02u:%02u - not currently racing.\r\n"), y, tm.Month, tm.Day, tm.Hour, tm.Minute, tm.Second);
-        Serial.print(buf);
-      } else {
-        Serial.print(F("Not currently racing, and the time is not set!\r\n"));
-      }
+      _last_sec = time(nullptr);
+      struct tm * timeinfo;
+      timeinfo = localtime(&_last_sec);
+      int y = timeinfo->tm_year + 1900;  //tm stores years counting from 1900, so we have to apply a fudge factor
+      int m = timeinfo->tm_mon + 1;
+      char buf[100];
+      snprintf_P(buf, sizeof(buf), PSTR("%04u-%02u-%02u %02u:%02u:%02u - not currently racing.\r\n"),
+        y, m, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+      Serial.print(buf);
     }
   }
   
