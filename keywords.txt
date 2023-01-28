@@ -2,39 +2,41 @@
 # Datatypes (KEYWORD1)
 
 # Methods and Functions (KEYWORD2)
-crossmgrSetup	KEYWORD2
-crossmgrDisconnect	KEYWORD2
-crossmgrConnect	KEYWORD2
-crossmgrConnected	KEYWORD2
-crossmgrRaceInProgress	KEYWORD2
-crossmgrLaps	KEYWORD2
-crossmgrFlashLaps	KEYWORD2
-crossmgrWantsLapClock	KEYWORD2
-crossmgrLapStart	KEYWORD2
-crossmgrLapElapsed	KEYWORD2
-crossmgrRaceStart	KEYWORD2
-crossmgrRaceElapsed	KEYWORD2
-crossmgrGetFGColour	KEYWORD2
-crossmgrGetBGColour	KEYWORD2
-crossmgrGetColour	KEYWORD2
-crossmgrSprintTime	KEYWORD2
-crossmgrSprintSpeed	KEYWORD2
-crossmgrSprintBib	KEYWORD2
-crossmgrSprintAge	KEYWORD2
-crossmgrSetOnGotSprintData KEYWORD2
-crossmgrOnGotSprintData	KEYWORD2
-crossmgrSetOnWallTime	KEYWORD2
-crossmgrOnWallTime	KEYWORD2
-crossmgrSetOnNetwork	KEYWORD2
-crossmgrOnNetwork	KEYWORD2
-crossmgrSetOnGotRaceData KEYWORD2
-crossmgrOnGotRaceData KEYWORD2
-crossmgrSetOnGotColours KEYWORD2
-crossmgrOnGotColours KEYWORD2
-crossmgrLoop	KEYWORD2
-crossmgrWebSocketEvent	KEYWORD2
-crossmgrParseColour	KEYWORD2
-crossmgrColoursAreDefault	KEYWORD2
+crossMgrSetup	KEYWORD2
+crossMgrDisconnect	KEYWORD2
+crossMgrConnect	KEYWORD2
+crossMgrConnected	KEYWORD2
+crossMgrRaceInProgress	KEYWORD2
+crossMgrLaps	KEYWORD2
+crossMgrFlashLaps	KEYWORD2
+crossMgrWantsLapClock	KEYWORD2
+crossMgrLapStart	KEYWORD2
+crossMgrLapElapsed	KEYWORD2
+crossMgrRaceStart	KEYWORD2
+crossMgrRaceElapsed	KEYWORD2
+crossMgrGetFGColour	KEYWORD2
+crossMgrGetBGColour	KEYWORD2
+crossMgrGetColour	KEYWORD2
+crossMgrSprintTime	KEYWORD2
+crossMgrSprintSpeed	KEYWORD2
+crossMgrSprintBib	KEYWORD2
+crossMgrSprintAge	KEYWORD2
+crossMgrSetOnGotSprintData KEYWORD2
+crossMgrONGotSprintData	KEYWORD2
+crossMgrSetOnWallTime	KEYWORD2
+crossMgrONWallTime	KEYWORD2
+crossMgrSetOnNetwork	KEYWORD2
+crossMgrONNetwork	KEYWORD2
+crossMgrSetOnGotRaceData KEYWORD2
+crossMgrONGotRaceData KEYWORD2
+crossMgrSetOnGotColours KEYWORD2
+crossMgrONGotColours KEYWORD2
+crossMgrSetOnDebug KEYWORD2
+crossMgrONDebug KEYWORD2
+crossMgrLoop	KEYWORD2
+crossMgrWebSocketEvent	KEYWORD2
+crossMgrParseColour	KEYWORD2
+crossMgrColoursAreDefault	KEYWORD2
 
 # Instances (KEYWORD2)
 
