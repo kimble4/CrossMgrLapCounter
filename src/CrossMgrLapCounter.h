@@ -6,7 +6,7 @@
 #include <ArduinoJson.h>        //parsing JSON https://arduinojson.org/
 #include <FastLED.h>            //LED strip http://fastled.io/  (we use the CRGB struct)
 #if ! defined (ARDUINO_ARCH_ESP32)
-#include <TimeLib.h>            //general clockery https://www.pjrc.com/teensy/td_libs_Time.html
+#include <TimeLib.h>            //general clockery https://github.com/PaulStoffregen/Time
 #endif
 
 void crossMgrSetup(IPAddress ip, int reconnect_interval);
