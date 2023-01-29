@@ -74,7 +74,7 @@ Return a [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) for the given gr
 
 # Time of day
 
-The library obtains time-of-day from CrossMrg on connection and at 5-minute intervals.  By default this is used to set the system time using TimeLib's `setTime()` or the ESP32 core's `settimeofday()`.
+The library obtains time-of-day from CrossMgr on connection and at 5-minute intervals.  By default this is used to set the system time using TimeLib's `setTime()` or the ESP32 core's `settimeofday()`.
 
 You can access the time of day in your program in the usual ways, eg. `now()` (ESP8266) or `time(nullptr)` (ESP32)
 
@@ -122,7 +122,7 @@ Human-readable speed unit.
 
 `unsigned long crossMgrSprintAge()`
 
-The time, in milliseconds, since the current sprint data first arrived.
+The time, in milliseconds, since the current sprint data arrived.
 
 `void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t))`
 
