@@ -126,4 +126,5 @@ The time, in milliseconds, since the current sprint data arrived.
 
 `void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t))`
 
-Sets a callback for whenever sprint data arrives from the sprint timer.
+Sets a callback for whenever sprint data arrives from the sprint timer.  `t` contains the time, relative to `millis()` that the data arrived.
+
