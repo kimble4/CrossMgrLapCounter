@@ -1,7 +1,9 @@
 # CrossMgrLapCounter
-Arduino library to access [CrossMgr](https://github.com/esitarski/CrossMgr)'s lapcounter websocket interface, compatible with ESP8266 and ESP32 architectures, which have built-in WiFi.
+Arduino library to access [CrossMgr](https://github.com/esitarski/CrossMgr)'s lapcounter websocket interface, compatible with ESP8266 and ESP32 architectures.
 
-This allows you to build a hardware-agnostic lap and/or elapsed time display, to avoid the problems with making computer monitors readable in bright sunlight.  Addressable LED strips work well, but this could be used to drive a traditional seven-segment or matrix LED display.  If you build a lap counter using something exotic such as split-flaps or nixie tubes, please send photos :)
+This allows you to build a hardware-agnostic lap and/or elapsed time display, to avoid the problems with making computer monitors readable in bright sunlight.  The ESPs have significantly more processor power and memory than the usual AVR Arduinos, and include built-in WiFi (ESP32 also supports wired Ethernet, with additional hardware - I can recommend the ET32-ETH01 as a useful building block for Ethernet-based projects).  Development boards containing these microcontrollers from the likes of WeMos and NodeMCU can be programmed in the same way as traditional Arduino boards, and are a convenient basis for a lap counter.
+
+For the display, addressable LED strips work well, but this library could equally be used to drive a traditional seven-segment or matrix LED display.  If you build a lap counter using something exotic such as split-flaps or nixie tubes, please send photos :)
 
 ## Dependencies:
 
