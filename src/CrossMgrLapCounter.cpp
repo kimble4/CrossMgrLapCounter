@@ -1,4 +1,4 @@
-#define CROSSMGR_LAP_COUNTER_VERSION 20230128.2
+#define CROSSMGR_LAP_COUNTER_VERSION 20230128.3
 #include "CrossMgrLapCounter.h"
 
 #define RACE_TIMEOUT 60000  // milliseconds - how long after CrossMgr stops sending data do we consider the race to be over?
@@ -91,18 +91,20 @@ void crossMgrSetup(IPAddress ip, int reconnect_interval, CRGB default_fg, CRGB d
 void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colours, CRGB default_fg, CRGB default_bg) {
 	_crossmgr_overrride_default_colours = override_colours;
 	//set up JSON filter to only process the fields we need
-	filter["tNow"] = true;             //wall time
-	//filter["raceStartTime"] = true;    //we don't need both of these
-	filter["curRaceTime"] = true;      //this one is easier to parse
-	filter["labels"] = true;           //lap counters
-	filter["foregrounds"] = true;      //foreground colour
-	filter["backgrounds"] = true;      //background colour
-	filter["lapElapsedClock"] = true;  //enable lap elapsed time
+	filter["tNow"] = true;				//wall time
+	//filter["raceStartTime"] = true;	//we don't need both of these
+	filter["curRaceTime"] = true;		//this one is easier to parse
+	filter["labels"] = true;			//lap counters
+	filter["foregrounds"] = true;		//foreground colour
+	filter["backgrounds"] = true;		//background colour
+	filter["lapElapsedClock"] = true;	//enable lap elapsed time
 	#ifdef ENABLE_SPRINT_EXTENSIONS
-	//filter["sprintDistance"] = true;   //we don't use this
- 	filter["sprintBib"] = true;        //bib number for sprint mode
- 	filter["sprintTime"] = true;       //sprint time (float seconds)
- 	filter["sprintSpeed"] = true;       //sprint speed (unitless float)
+	//filter["sprintDistance"] = true;	//we don't use this
+ 	filter["sprintBib"] = true;			//bib number for sprint mode
+ 	filter["sprintStart"] = true;		//epioch time the sprint was recorded
+ 	filter["sprintTime"] = true;		//sprint time (float seconds)
+ 	filter["sprintSpeed"] = true;		//sprint speed (unitless float)
+ 	filter["speedUnit"] = true;		//sprint unit (string)
 	#endif
 	#if defined (DEBUG_JSON) || defined (DEBUG)
 	char buf[200];
@@ -577,12 +579,14 @@ switch(type) {
 					}
 				}
 				if (speedUnit) {
-					snprintf_P(_crossmgr_sprint_unit, sizeof(_crossmgr_sprint_unit), PSTR("%s"), speedUnit);
-					#ifdef DEBUG
-					char buf[100];
-					snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got speed unit: %s\r\n"), _crossmgr_sprint_unit);
-					crossMgrDebug(buf);
-					#endif
+					if (strcmp(speedUnit, _crossmgr_sprint_unit) != 0) {
+						snprintf_P(_crossmgr_sprint_unit, sizeof(_crossmgr_sprint_unit), PSTR("%s"), speedUnit);
+						#ifdef DEBUG
+						char buf[100];
+						snprintf_P(buf, sizeof(buf), PSTR("[CMr] Got new speed unit: %s\r\n"), _crossmgr_sprint_unit);
+						crossMgrDebug(buf);
+						#endif
+					}
 				}
 				if (new_sprint) {
 					if (!sprintSpeed) {  //we got new data but no speed
