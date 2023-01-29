@@ -98,11 +98,11 @@ void loop() {
       Serial.print(F("  elapsed: "));
       Serial.print(crossMgrLapElapsed(0)/1000);
       Serial.print(F("."));
-      Serial.print(crossMgrLapElapsed(0)%10);  //or tenths of seconds
+      Serial.print((crossMgrLapElapsed(0)/100)%10);  //or tenths of seconds
       Serial.print(F(", "));
       Serial.print(crossMgrLapElapsed(1)/1000);
       Serial.print(F("."));
-      int hundredths = crossMgrLapElapsed(1)%100;  //note that leading zeros must be handled with care
+      int hundredths = (crossMgrLapElapsed(1)/10)%100;  //note that leading zeros must be handled with care
       if (hundredths < 10) {  //if you're driving your own digital display, you'll likely have to do something like this
         Serial.print(F("0"));
       }
