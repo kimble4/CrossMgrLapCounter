@@ -65,7 +65,9 @@ Returns the elapsed race time in milliseconds.
 Colours are stored using [FastLED](https://fastled.io/)'s [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) struct.  This provides convenient ways to define and manpulate colours, which are particularly useful with RGB-capable LED displays.  In the interests of efficiency, colours from CrossMgr are only updated every 30 seconds.
 
 `CRGB crossMgrGetFGColour(int group)`
+
 `CRGB crossMgrGetBGColour(int group)`
+
 `CRGB crossMgrGetColour(int group, boolean foreground)`
 
 Return a [CRGB](http://fastled.io/docs/3.1/struct_c_r_g_b.html) for the given group's lap counter foreground and background colour respectively.  If the default colours were overriden in `crossMgrSetup()`, colours from CrossMgr will be ignored unless they are set to something else.
