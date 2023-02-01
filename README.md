@@ -19,8 +19,11 @@ TimeLib: https://github.com/PaulStoffregen/Time
 ## Examples:
 [Command reference](https://github.com/kimble4/CrossMgrLapCounter/blob/main/command_reference.md)
 
-The examples show basic use of the library to output data on the serial terminal.  Driving an LED display is left as an exercise for the reader, but I suggest that addressable LED strips, of the type supported by the FastLED library, are an economical way to build a large, bright LED digital display with minimal additional electronics.
+The serial examples show basic use of the library to output race data on the serial terminal, with no additional hardware.
 
-Further examples to come?
+NeoPixelLapCounter.ino is a usable two-digit lap counter for Neopixel-style LED strip and a ESP8266 dev board like the WeMos D1.
+
+Building an LED display is left as an exercise for the reader, but I suggest that addressable LED strips of the type supported by the FastLED library are an economical way to make a large, bright LED digital display with minimal additional electronics.
+
 
 This library is derived from code we've been using to run an LED elapsed time clock at [BHPC](http://www.bhpc.org.uk/) races for a couple of years.
