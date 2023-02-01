@@ -8,7 +8,7 @@
 #define RACE_TIME_UPDATE_INTERVAL 30000  //how often to re-sync the local race clock, don't want to do this too often as it may cause visible jitter (milliseconds)
 #define MAX_RACE_START_TIME_DELTA 750 //how many milliseconds do we allow the race start time to drift by without resetting
 #define NUM_LAPCOUNTERS 6 //how many lap counter fields to parse
-							
+
 #define DEBUG
 //#define DEBUG_JSON
 
@@ -201,7 +201,7 @@ CRGB crossMgrGetColour(int group, boolean foreground) {
 }
 
 #ifdef ENABLE_SPRINT_EXTENSIONS
-double crossmgrSprintTime() {
+double crossMgrSprintTime() {
 	return(_crossmgr_sprint_time);
 }
 
