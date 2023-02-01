@@ -33,8 +33,8 @@ crossMgrSetOnGotRaceData KEYWORD2
 crossMgrONGotRaceData KEYWORD2
 crossMgrSetOnGotColours KEYWORD2
 crossMgrONGotColours KEYWORD2
-crossMgrSetOnDebug KEYWORD2
-crossMgrONDebug KEYWORD2
+crossMgrSetDebug KEYWORD2
+crossMgrDebug KEYWORD2
 crossMgrLoop	KEYWORD2
 crossMgrWebSocketEvent	KEYWORD2
 crossMgrParseColour	KEYWORD2
