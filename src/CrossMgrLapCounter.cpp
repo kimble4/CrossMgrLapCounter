@@ -111,7 +111,7 @@ void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
 	#endif
 	#if defined DEBUG_JSON
 	serializeJsonPretty(filter, buf);
-	crossMgrDebug(F(buf));
+	crossMgrDebug(buf);
 	crossMgrDebug(F("\r\n"));
 	#endif
 	//init lapcounter data
@@ -366,7 +366,7 @@ switch(type) {
 				#ifdef DEBUG_JSON
 				char buf[400];
 				serializeJsonPretty(doc, buf);
-				crossMgrDebug(F(buf));
+				crossMgrDebug(buf);
 				crossMgrDebug(F("\r\n"));
 				#endif
 				//if we haven't recently, get the wall time and set the clock
