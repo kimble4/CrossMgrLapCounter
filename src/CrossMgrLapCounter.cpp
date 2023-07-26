@@ -1,4 +1,4 @@
-#define CROSSMGR_LAP_COUNTER_VERSION 20230128.3
+#define CROSSMGR_LAP_COUNTER_VERSION 20230726.1
 #include "CrossMgrLapCounter.h"
 
 #define RACE_TIMEOUT 60000  // milliseconds - how long after CrossMgr stops sending data do we consider the race to be over?
@@ -471,6 +471,7 @@ switch(type) {
 					}
 				} else {
 					_crossmgr_race_in_progress = false;
+					_crossmgr_last_updated_race_time = 0;
 				}
 				//display lap elapsed clock field
 				_crossmgr_lap_elapsed_clock = doc["lapElapsedClock"];
