@@ -1,4 +1,4 @@
-#define CROSSMGR_LAP_COUNTER_VERSION 20230726.1
+#define CROSSMGR_LAP_COUNTER_VERSION 20231004.1
 #include "CrossMgrLapCounter.h"
 
 #define RACE_TIMEOUT 60000  // milliseconds - how long after CrossMgr stops sending data do we consider the race to be over?
@@ -33,6 +33,7 @@ double _crossmgr_sprint_speed = -1;
 int _crossmgr_sprint_bib = -1;
 time_t _crossmgr_sprint_start_time = 0;
 char _crossmgr_sprint_unit[10] = "";
+int _crossmgr_sprint_timeout = -1;
 #endif
 
 CRGB _crossmgr_fg_colour[NUM_LAPCOUNTERS];
@@ -45,7 +46,7 @@ CRGB _crossmgr_bg_colour[NUM_LAPCOUNTERS];
 WebSocketsClient _crossmgr_webSocket;
 
 // The filter: it contains "true" for each value we want to keep
-/* size 208 calculated using https://arduinojson.org/v6/assistant/
+/* size 224 calculated using https://arduinojson.org/v6/assistant/
 for:
 {
   "tNow": true,
@@ -61,6 +62,7 @@ for:
   "sprintStart": true,
   "sprintTime": true,
   "sprintSpeed": true
+  "sprintTimeout": true
 }
 size 112 calculated using https://arduinojson.org/v6/assistant/
 for:
@@ -75,7 +77,7 @@ for:
 }
 */
 #ifdef ENABLE_SPRINT_EXTENSIONS
-StaticJsonDocument<208> filter;
+StaticJsonDocument<224> filter;
 #else
 StaticJsonDocument<112> filter;
 #endif
@@ -104,7 +106,8 @@ void crossMgrSetup(IPAddress ip, int reconnect_interval, boolean override_colour
  	filter["sprintStart"] = true;		//epioch time the sprint was recorded
  	filter["sprintTime"] = true;		//sprint time (float seconds)
  	filter["sprintSpeed"] = true;		//sprint speed (unitless float)
- 	filter["speedUnit"] = true;		//sprint unit (string)
+ 	filter["speedUnit"] = true;			//sprint unit (string)
+ 	filter["sprintTimeout"] = true;		//timeout (int seconds)
 	#endif
 	#if defined (DEBUG_JSON) || defined (DEBUG)
 	char buf[200];
@@ -219,6 +222,10 @@ time_t crossMgrSprintStart() {
 
 const char * crossMgrSprintUnit() {
 	return(_crossmgr_sprint_unit);
+}
+
+int crossMgrSprintTimeout() {
+	return(_crossmgr_sprint_timeout);
 }
 
 unsigned long crossMgrSprintAge() {
@@ -520,6 +527,7 @@ switch(type) {
 				int sprintBib = doc["sprintBib"];
 				time_t sprintStart = doc["sprintStart"];
 				const char* speedUnit = doc["speedUnit"];
+				int sprintTimeout = doc["sprintTimeout"];
 				boolean new_sprint = false;
 				if (sprintTime > 0) {
 					_crossmgr_last_got_sprint_data = websocket_event_time;
@@ -538,6 +546,7 @@ switch(type) {
 					_crossmgr_sprint_time = -1;
 					_crossmgr_sprint_speed = -1;
 					_crossmgr_sprint_bib = -1;
+					_crossmgr_sprint_timeout = -1;
 				}
 				if (sprintSpeed) {
 					_crossmgr_last_got_sprint_data = websocket_event_time;
@@ -588,6 +597,14 @@ switch(type) {
 						crossMgrDebug(buf);
 						#endif
 					}
+				}
+				if (sprintTimeout) {
+					_crossmgr_sprint_timeout = sprintTimeout;
+					#ifdef DEBUG
+					char buf[100];
+					snprintf_P(buf, sizeof(buf), PSTR("[CMr] Sprint timeout set to: %i\r\n"), _crossmgr_sprint_timeout);
+					crossMgrDebug(buf);
+					#endif
 				}
 				if (new_sprint) {
 					if (!sprintSpeed) {  //we got new data but no speed

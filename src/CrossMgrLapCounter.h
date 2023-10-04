@@ -54,6 +54,8 @@ time_t crossMgrSprintStart();
 
 const char * crossMgrSprintUnit();
 
+int crossMgrSprintTimeout();
+
 unsigned long crossMgrSprintAge();
 
 void crossMgrSetOnGotSprintData(void (*fp)(const unsigned long t));
