@@ -102,15 +102,15 @@ If `ENABLE_SPRINT_EXTENSIONS` is `#define`ed in CrossMgrLapCounter.h, these addi
 
 `double crossMgrSprintTime()`
 
-The last rider's time, as a floating-point number of seconds, if available.
+The last rider's time, as a floating-point number of seconds, if available.  Default value -1
 
 `double crossMgrSprintSpeed()`
 
-The last rider's speed, as a unitless floating point number, if available.  The distance/time calculation is performed by the sprint timer itself.
+The last rider's speed, as a unitless floating point number, if available.  The distance/time calculation is performed by the sprint timer itself.  Default value -1
 
 `int crossMgrSprintBib()`
 
-The last rider's bib number, if available.
+The last rider's bib number, if available.  Default value -1
 
 `time_t crossMgrSprintStart()`
 
@@ -119,6 +119,10 @@ The wall time that the sprint was recorded.
 `const char * crossMgrSprintUnit()`
 
 Human-readable speed unit.
+
+`int crossMgrSprintTimeout()`
+
+Time in seconds to consider this sprint data valid for, if available.  Default value -1
 
 `unsigned long crossMgrSprintAge()`
 
